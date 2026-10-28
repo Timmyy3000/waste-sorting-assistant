@@ -10,7 +10,7 @@ Capstone project, Compact Programming Course (Python), FH Dortmund, WS 2026/27.
 
 | Member | Subsystem | Files |
 |---|---|---|
-| Oluwatimilehin Ogunme (Product Owner, Scrum Master) | A · AI Services | `ai_services.py` |
+| Oluwatimilehin Ogunme | A · AI Services | `ai_services.py` |
 | Terkuma Caleb Lumun | B · Data & Rules | `db.py`, `schema.sql`, `data/rules_seed.csv` |
 | Onyedikachi Onah | C · Dashboard & Analytics | `analytics.py` |
 | Moye Nyuysoni Glein Perry | D · Web App & Integration | `app.py`, `templates/`, `Dockerfile` |
