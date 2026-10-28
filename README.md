@@ -38,3 +38,7 @@ _Added per subsystem as it is implemented._
 ## Team video
 
 _Link added with each homework assignment._
+
+---
+
+_Generated with the assistance of AI._
