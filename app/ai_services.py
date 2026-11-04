@@ -8,9 +8,13 @@ import base64
 import json
 import logging
 import os
+import random
 import time
+from datetime import datetime
+from typing import Iterable, Iterator
 
 from app.ai_prompts import CLASSIFY_PROMPT, TIP_PROMPT
+from app.pipeline import ScanEvent, Source
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +193,71 @@ class AIService:
             raise RuntimeError("AI is not available, please choose the category manually") from error
 
 
+class ClassificationEventSource(Source):
+    """Real source: classifies each incoming photo and yields one ScanEvent per photo.
+
+    `photos` can be any iterable of (image_bytes, region), e.g. uploads arriving over
+    time. __iter__ is a generator: it classifies one photo only when the next event is
+    requested, so it works on an endless stream.
+    """
+
+    def __init__(self, service: AIService, photos: Iterable[tuple[bytes, str]]):
+        self._service = service
+        self._photos = photos
+
+    def __iter__(self) -> Iterator[ScanEvent]:
+        for image_bytes, region in self._photos:
+            result = self._service.classify_image(image_bytes)
+            yield ScanEvent(datetime.now(), region, result.category, result.material, result.confidence)
+
+
+class SimulatedScanSource(Source):
+    """Demo/test source without OpenAI: produces `count` random scan events.
+
+    Uses the iterator protocol by hand: __iter__ returns the object itself and
+    __next__ returns the next event or raises StopIteration at the end.
+    """
+
+    def __init__(self, count: int, regions: tuple[str, ...] = ("Dortmund", "Berlin"), seed: int | None = None):
+        self._count = count
+        self._regions = regions
+        self._produced = 0
+        self._random = random.Random(seed)  # a seed makes the stream repeatable in tests
+
+    @property
+    def produced(self) -> int:
+        return self._produced
+
+    def __iter__(self) -> "SimulatedScanSource":
+        return self
+
+    def __next__(self) -> ScanEvent:
+        if self._produced >= self._count:
+            raise StopIteration
+        self._produced += 1
+        category = self._random.choice(CATEGORIES)
+        return ScanEvent(
+            timestamp=datetime.now(),
+            region=self._random.choice(self._regions),
+            category=category,
+            material=self._random.choice(SAMPLE_MATERIALS[category]),
+            confidence=round(self._random.uniform(0.4, 1.0), 2),
+        )
+
+
+SAMPLE_MATERIALS = {
+    "recyclable": ("plastic bottle", "tin can", "newspaper", "glass jar"),
+    "compostable": ("banana peel", "coffee grounds", "apple core"),
+    "landfill": ("chip bag", "broken mug", "used tissue"),
+    "unknown": ("unclear item",),
+}
+
+
 if __name__ == "__main__":
+    print("Simulated stream:")
+    for event in SimulatedScanSource(count=3, seed=1):
+        print(" ", event)
+
     # Small demo without OpenAI: a fake client returns fixed answers.
     class FakeClient(AIClient):
         def call_vision(self, prompt, image_bytes, mime_type):
