@@ -9,6 +9,9 @@ import sqlite3
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import Iterator
+
+from app.pipeline import Processor, ScanEvent  # Timi's HT2 base classes (subsystem A)
 
 # The only allowed waste categories. The same 4 strings are in schema.sql (CHECK).
 CATEGORIES = ("recyclable", "compostable", "landfill", "unknown")
@@ -381,6 +384,39 @@ class RuleRepository(BaseRepository):
     def _row_to_object(self, row: sqlite3.Row) -> RecyclingRule:
         """One row of the rules table -> RecyclingRule object."""
         return RecyclingRule(row["region"], row["category"], row["bin"], row["instructions"])
+
+
+class DbSink(Processor):
+    """Pipeline step (HT2) that saves every ScanEvent as a Scan, then passes the event on.
+
+    Because it yields each event again, it can be the last step of a pipeline or sit
+    in the middle:  Pipeline(source) | DbSink(scan_repository) | another_step
+    """
+
+    def __init__(self, repository: ScanRepository) -> None:
+        self._repository = repository
+        self._saved = 0  # how many events this sink has saved so far
+
+    @property
+    def repository(self) -> ScanRepository:
+        """The ScanRepository the events are saved with (read-only)."""
+        return self._repository
+
+    @property
+    def saved(self) -> int:
+        """Number of events saved so far (read-only, only process() changes it)."""
+        return self._saved
+
+    def process(self, events: Iterator[ScanEvent]) -> Iterator[ScanEvent]:
+        """Generator: save one event, yield it, then wait until the next one is asked for."""
+        for event in events:
+            self._repository.save_scan(self._to_scan(event))
+            self._saved += 1
+            yield event
+
+    def _to_scan(self, event: ScanEvent) -> Scan:
+        """ScanEvent (message in the stream) -> Scan (record for the database, validated)."""
+        return Scan(None, event.timestamp, event.region, event.category, event.material, event.confidence)
 
 
 if __name__ == "__main__":
