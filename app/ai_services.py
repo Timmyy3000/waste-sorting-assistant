@@ -25,6 +25,30 @@ MAX_TIP_LENGTH = 300
 DEFAULT_MODEL = "gpt-4o-mini"
 
 
+class AIServiceError(Exception):
+    """Base class for every error of subsystem A. `http_status` tells Flask which code to send."""
+
+    http_status = 500
+
+
+class InvalidImageError(AIServiceError):
+    """The upload is not a JPEG or PNG image."""
+
+    http_status = 415  # Unsupported Media Type
+
+
+class ImageTooLargeError(AIServiceError):
+    """The upload is bigger than 5 MB."""
+
+    http_status = 413  # Payload Too Large
+
+
+class AIUnavailableError(AIServiceError):
+    """OpenAI failed twice, so the user has to choose the category manually."""
+
+    http_status = 503  # Service Unavailable
+
+
 class Classification:
     """The result of classifying one photo."""
 
@@ -101,7 +125,7 @@ class AIClient:
         if self._client is not None:
             return
         if not self._api_key:
-            raise RuntimeError("OPENAI_API_KEY is not set")
+            raise AIUnavailableError("OPENAI_API_KEY is not set")
         from openai import OpenAI
 
         self._client = OpenAI(api_key=self._api_key)
@@ -169,16 +193,28 @@ class AIService:
         tip = self._with_one_retry(lambda: self._client.call_text(prompt)).strip()
         return tip[:MAX_TIP_LENGTH]
 
+    def classify_upload(self, image_bytes: bytes, region: str) -> dict:
+        """Logic for the /scan route (D): photo in -> classification + tip out, as a dict.
+
+        Raises an AIServiceError subclass when something goes wrong; D's Flask error
+        handler turns it into a clean message using `http_status`.
+        """
+        result = self.classify_image(image_bytes)
+        answer = result.to_dict()
+        answer["region"] = region
+        answer["tip"] = self.generate_tip(result.category, region)
+        return answer
+
     @staticmethod
     def _check_image(image_bytes: bytes) -> str:
         """Allow only JPEG/PNG up to 5 MB. Returns the MIME type."""
         if len(image_bytes) > MAX_IMAGE_BYTES:
-            raise ValueError("Image is larger than 5 MB")
+            raise ImageTooLargeError("Image is larger than 5 MB")
         if image_bytes.startswith(b"\xff\xd8\xff"):
             return "image/jpeg"
         if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
             return "image/png"
-        raise ValueError("Only JPEG and PNG images are allowed")
+        raise InvalidImageError("Only JPEG and PNG images are allowed")
 
     @staticmethod
     def _with_one_retry(call):
@@ -190,7 +226,7 @@ class AIService:
         try:
             return call()
         except Exception as error:
-            raise RuntimeError("AI is not available, please choose the category manually") from error
+            raise AIUnavailableError("AI is not available, please choose the category manually") from error
 
 
 class ClassificationEventSource(Source):
