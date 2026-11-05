@@ -381,3 +381,20 @@ class RuleRepository(BaseRepository):
     def _row_to_object(self, row: sqlite3.Row) -> RecyclingRule:
         """One row of the rules table -> RecyclingRule object."""
         return RecyclingRule(row["region"], row["category"], row["bin"], row["instructions"])
+
+
+if __name__ == "__main__":
+    # Demo for the HT1 video. Run it with:  python -m app.db
+    with Database() as db:  # in-memory database, closed automatically at the end
+        rules = RuleRepository(db)  # both repositories share the SAME Database object
+        scans = ScanRepository(db)
+
+        print(f"Loaded {rules.load_from_csv()} rules for {rules.get_regions()}\n")
+
+        scans.save_scan(Scan(None, datetime(2026, 11, 5, 9, 15), "Dortmund", "recyclable", "plastic bottle", 0.93))
+        scans.save_scan(Scan(None, datetime(2026, 11, 5, 9, 20), "Munich", "compostable", "banana peel", 0.88))
+
+        for scan in scans.get_scans():
+            rule = rules.get_rule(scan.region, scan.category)
+            print(scan)
+            print(f"   -> {rule.bin}: {rule.instructions}\n")
