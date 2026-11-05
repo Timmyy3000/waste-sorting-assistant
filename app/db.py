@@ -4,10 +4,15 @@ Stores every scan and the disposal rules per region, and gives the other
 subsystems a clean way to read them. Nobody outside this file writes SQL.
 """
 
+import sqlite3
 from datetime import datetime
+from pathlib import Path
 
 # The only allowed waste categories. The same 4 strings are in schema.sql (CHECK).
 CATEGORIES = ("recyclable", "compostable", "landfill", "unknown")
+
+# schema.sql sits next to this file, so this works from any working directory (and in Docker).
+SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 
 
 def _clean_text(value: str, field: str) -> str:
@@ -162,3 +167,69 @@ class RecyclingRule:
 
     def __repr__(self) -> str:
         return f"RecyclingRule({self._region!r}, {self._category!r}, bin={self._bin!r})"
+
+
+class Database:
+    """Owns the connection to one SQLite database and creates its tables.
+
+    path=":memory:" gives a throw-away database in RAM (used by tests);
+    a file name like "data/waste.db" gives a database that is kept on disk.
+    """
+
+    def __init__(self, path: str = ":memory:") -> None:
+        self._path = path
+        self._connection: sqlite3.Connection | None = None  # opened by connect()
+
+    @property
+    def path(self) -> str:
+        return self._path
+
+    @path.setter
+    def path(self, value: str) -> None:
+        if self.is_connected:
+            raise ValueError("Close the database before changing its path")
+        self._path = _clean_text(value, "path")
+
+    @property
+    def is_connected(self) -> bool:
+        """True while a connection is open (read-only, no setter)."""
+        return self._connection is not None
+
+    @property
+    def connection(self) -> sqlite3.Connection:
+        """The open connection. Connects first if needed."""
+        if self._connection is None:
+            self.connect()
+        return self._connection
+
+    def connect(self) -> sqlite3.Connection:
+        """Open the connection (does nothing if it is already open)."""
+        if self._connection is None:
+            self._connection = sqlite3.connect(self._path)
+            self._connection.row_factory = sqlite3.Row  # rows can be read by column name
+        return self._connection
+
+    def close(self) -> None:
+        """Close the connection. For ":memory:" this also deletes all data."""
+        if self._connection is not None:
+            self._connection.close()
+            self._connection = None
+
+    def create_tables(self) -> None:
+        """Setup method: run schema.sql. Safe to call again (CREATE TABLE IF NOT EXISTS)."""
+        schema = SCHEMA_PATH.read_text(encoding="utf-8")
+        with self.connection:  # transaction: commit if OK, roll back on error
+            self.connection.executescript(schema)
+
+    def __enter__(self) -> "Database":
+        """Start of a 'with Database(...) as db:' block: connect and hand back the object."""
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        """End of the 'with' block, even after an error: close the connection."""
+        self.close()
+
+    def __repr__(self) -> str:
+        state = "connected" if self.is_connected else "closed"
+        return f"Database({self._path!r}, {state})"
