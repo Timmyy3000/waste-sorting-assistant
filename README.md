@@ -59,25 +59,28 @@ Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworka
 
 ## UML class diagrams
 
-Subsystem D's implemented classes:
+Subsystem D's implemented classes. Solid triangle arrows show inheritance;
+dashed arrows show dependencies. The pages are placeholders and do not yet
+connect to the other subsystems.
 
 ```mermaid
 classDiagram
+    direction LR
     class AppConfig {
-        +upload_limit
-        +allowed_types
-        +database_host
-        +database_name
-        +database_user
-        +database_password
+        +upload_limit: int
+        +allowed_types: set
+        +database_host: str
+        +database_name: str
+        +database_user: str
+        +database_password: str
     }
     class AppFactory {
-        +config
+        +config: AppConfig
         +create() Flask
     }
     class BaseBlueprint {
         <<abstract>>
-        +blueprint
+        +blueprint: Blueprint
         +register_routes()
     }
     class ScanBlueprint {
@@ -90,9 +93,14 @@ classDiagram
     }
     BaseBlueprint <|-- ScanBlueprint
     BaseBlueprint <|-- DashboardBlueprint
-    AppFactory --> AppConfig
-    AppFactory --> BaseBlueprint
+    AppFactory ..> AppConfig : configures
+    AppFactory ..> ScanBlueprint : registers
+    AppFactory ..> DashboardBlueprint : registers
 ```
+
+`create_app()` calls `AppFactory.create()`, which registers the two route
+groups. Configuration lives in an `AppConfig` object; the web layer does not
+yet store scan data. The dashed arrows represent dependencies, not inheritance.
 
 HT2 stream runner:
 
