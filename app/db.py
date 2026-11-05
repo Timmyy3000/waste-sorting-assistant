@@ -5,7 +5,8 @@ subsystems a clean way to read them. Nobody outside this file writes SQL.
 """
 
 import sqlite3
-from datetime import datetime
+from abc import ABC, abstractmethod
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 # The only allowed waste categories. The same 4 strings are in schema.sql (CHECK).
@@ -233,3 +234,99 @@ class Database:
     def __repr__(self) -> str:
         state = "connected" if self.is_connected else "closed"
         return f"Database({self._path!r}, {state})"
+
+
+class BaseRepository(ABC):
+    """Shared code for all repositories. A repository moves objects in and out of ONE table.
+
+    Abstract: you cannot create a BaseRepository itself, only a subclass that
+    implements _row_to_object().
+    """
+
+    def __init__(self, database: Database) -> None:
+        self._database = database
+        self._database.create_tables()  # make sure the tables exist (safe to repeat)
+
+    @property
+    def database(self) -> Database:
+        """The Database this repository uses (read-only)."""
+        return self._database
+
+    def _execute(self, sql: str, params: tuple = ()) -> int:
+        """Run one INSERT/UPDATE/DELETE in a transaction and return the new row id.
+
+        The values go in 'params' and replace the '?' placeholders, never into the SQL text.
+        """
+        connection = self._database.connection
+        with connection:  # commit on success, roll back on error
+            cursor = connection.execute(sql, params)
+        return cursor.lastrowid
+
+    def _query(self, sql: str, params: tuple = ()) -> list:
+        """Run a SELECT and turn every row into an object with _row_to_object()."""
+        rows = self._database.connection.execute(sql, params).fetchall()
+        return [self._row_to_object(row) for row in rows]
+
+    @abstractmethod
+    def _row_to_object(self, row: sqlite3.Row) -> object:
+        """Turn one database row into a Python object. Each subclass decides how."""
+
+
+class ScanRepository(BaseRepository):
+    """Saves and reads scans. C and D read scans ONLY through get_scans()."""
+
+    def save_scan(self, scan: Scan) -> int:
+        """Insert a new scan, store the new id on the object and return it."""
+        if scan.id is not None:
+            raise ValueError(f"Scan already saved with id {scan.id}")
+        new_id = self._execute(
+            "INSERT INTO scans (timestamp, region, category, material, confidence, corrected) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                scan.timestamp.isoformat(),  # datetime -> text, e.g. '2026-11-05T14:30:00'
+                scan.region,
+                scan.category,
+                scan.material,
+                scan.confidence,
+                int(scan.corrected),  # True/False -> 1/0
+            ),
+        )
+        scan.id = new_id
+        return new_id
+
+    def get_scans(
+        self,
+        region: str | None = None,
+        start: date | None = None,
+        end: date | None = None,
+    ) -> list[Scan]:
+        """Return scans, oldest first. Every filter is optional; start and end days are included."""
+        conditions = []
+        params = []
+        if region is not None:
+            conditions.append("region = ?")
+            params.append(region)
+        if start is not None:
+            conditions.append("timestamp >= ?")
+            params.append(start.isoformat())  # '2026-11-01' = start of that day
+        if end is not None:
+            conditions.append("timestamp < ?")
+            params.append((end + timedelta(days=1)).isoformat())  # before the NEXT day
+
+        sql = "SELECT * FROM scans"
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        sql += " ORDER BY timestamp"
+        return self._query(sql, tuple(params))
+
+    def _row_to_object(self, row: sqlite3.Row) -> Scan:
+        """One row of the scans table -> Scan object (text -> datetime, 0/1 -> bool)."""
+        return Scan(
+            id=row["id"],
+            timestamp=datetime.fromisoformat(row["timestamp"]),
+            region=row["region"],
+            category=row["category"],
+            material=row["material"],
+            confidence=row["confidence"],
+            corrected=bool(row["corrected"]),
+        )
