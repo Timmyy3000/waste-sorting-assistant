@@ -1,0 +1,13 @@
+region,category,bin,instructions
+Dortmund,recyclable,Gelbe Tonne / Blaue Tonne,Packaging (plastic and metal) goes in the yellow bin. Paper and cardboard go in the blue bin. Empty items first.
+Dortmund,compostable,Biotonne (brown),Food scraps and garden waste. No plastic bags - not even 'compostable' ones.
+Dortmund,landfill,Restmülltonne (grey),Items that cannot be recycled or composted such as nappies or dirty tissues.
+Dortmund,unknown,Wertstoffhof,Not sure? Ask the EDG recycling centre or check the EDG waste app before throwing it away.
+Berlin,recyclable,Wertstofftonne (yellow) / Blaue Tonne,Packaging and other plastic or metal items go in the yellow Wertstofftonne. Paper goes in the blue bin.
+Berlin,compostable,Biogut-Tonne (brown),Food scraps and garden waste. Wrap wet scraps in newspaper.
+Berlin,landfill,Hausmülltonne (grey),Non-recyclable household waste.
+Berlin,unknown,BSR Recyclinghof,Not sure? Ask at a BSR recycling centre or check the BSR waste guide.
+Munich,recyclable,Wertstoffinsel / Blaue Tonne,Munich has no yellow bin - take packaging to the nearest Wertstoffinsel. Paper goes in the blue bin.
+Munich,compostable,Biotonne (brown),Food scraps and garden waste. No plastic bags.
+Munich,landfill,Restmülltonne (grey),Non-recyclable household waste.
+Munich,unknown,Wertstoffhof,Not sure? Ask at a municipal Wertstoffhof or check the AWM waste guide.
