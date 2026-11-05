@@ -59,7 +59,42 @@ Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworka
 
 ## UML class diagrams
 
-_Added per subsystem as it is implemented._
+Subsystem D's implemented classes:
+
+```mermaid
+classDiagram
+    class AppConfig {
+        +upload_limit
+        +allowed_types
+        +database_host
+        +database_name
+        +database_user
+        +database_password
+    }
+    class AppFactory {
+        +config
+        +create() Flask
+    }
+    class BaseBlueprint {
+        <<abstract>>
+        +blueprint
+        +register_routes()
+    }
+    class ScanBlueprint {
+        +register_routes()
+        +scan()
+    }
+    class DashboardBlueprint {
+        +register_routes()
+        +dashboard()
+    }
+    BaseBlueprint <|-- ScanBlueprint
+    BaseBlueprint <|-- DashboardBlueprint
+    AppFactory --> AppConfig
+    AppFactory --> BaseBlueprint
+```
+
+The other subsystem diagrams will be added when supplied by their owners.
 
 ## Team video
 
