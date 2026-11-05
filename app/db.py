@@ -5,11 +5,14 @@ subsystems a clean way to read them. Nobody outside this file writes SQL.
 """
 
 import csv
+import os
 import sqlite3
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Iterator
+
+import pymysql  # MySQL driver (HT3), installed from requirements.txt
 
 from app.pipeline import Processor, ScanEvent  # Timi's HT2 base classes (subsystem A)
 
@@ -18,6 +21,7 @@ CATEGORIES = ("recyclable", "compostable", "landfill", "unknown")
 
 # schema.sql sits next to this file, so this works from any working directory (and in Docker).
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
+MYSQL_SCHEMA_PATH = Path(__file__).parent / "schema_mysql.sql"
 RULES_CSV_PATH = Path(__file__).parent.parent / "data" / "rules_seed.csv"
 
 
@@ -176,15 +180,18 @@ class RecyclingRule:
 
 
 class Database:
-    """Owns the connection to one SQLite database and creates its tables.
+    """Owns the connection to one SQLite database, creates its tables and runs ALL SQL.
 
     path=":memory:" gives a throw-away database in RAM (used by tests);
     a file name like "data/waste.db" gives a database that is kept on disk.
+    MySQLDatabase (below) inherits from this class and changes only what MySQL does differently.
     """
+
+    schema_path = SCHEMA_PATH  # class attribute: which schema file create_tables() runs
 
     def __init__(self, path: str = ":memory:") -> None:
         self._path = path
-        self._connection: sqlite3.Connection | None = None  # opened by connect()
+        self._connection = None  # opened by connect()
 
     @property
     def path(self) -> str:
@@ -202,18 +209,56 @@ class Database:
         return self._connection is not None
 
     @property
-    def connection(self) -> sqlite3.Connection:
+    def connection(self):
         """The open connection. Connects first if needed."""
         if self._connection is None:
             self.connect()
         return self._connection
 
-    def connect(self) -> sqlite3.Connection:
+    def connect(self):
         """Open the connection (does nothing if it is already open)."""
         if self._connection is None:
-            self._connection = sqlite3.connect(self._path)
-            self._connection.row_factory = sqlite3.Row  # rows can be read by column name
+            self._connection = self._open_connection()
         return self._connection
+
+    def _open_connection(self):
+        """SQLite version. MySQLDatabase overrides this method."""
+        # check_same_thread=False: Flask may use the connection from another thread.
+        connection = sqlite3.connect(self._path, check_same_thread=False)
+        connection.row_factory = sqlite3.Row  # rows can be read by column name
+        return connection
+
+    def _convert_sql(self, sql: str) -> str:
+        """Our SQL is written with ? placeholders. SQLite understands them, so no change.
+
+        This is the ONE place where placeholders are handled (MySQLDatabase overrides it).
+        """
+        return sql
+
+    def execute(self, sql: str, params: tuple = ()) -> int:
+        """Run one INSERT/UPDATE/DELETE in its own transaction. Returns the new row id."""
+        return self.execute_all([(sql, params)])
+
+    def execute_all(self, statements: list[tuple[str, tuple]]) -> int:
+        """Run several (sql, params) statements in ONE transaction: all succeed or none.
+
+        Returns the row id of the last INSERT.
+        """
+        cursor = self.connection.cursor()
+        try:
+            for sql, params in statements:
+                cursor.execute(self._convert_sql(sql), params)
+            self.connection.commit()  # save everything
+        except Exception:
+            self.connection.rollback()  # undo everything, then let the error continue
+            raise
+        return cursor.lastrowid
+
+    def query(self, sql: str, params: tuple = ()) -> list[dict]:
+        """Run a SELECT and return every row as a dict: {"column name": value}."""
+        cursor = self.connection.cursor()
+        cursor.execute(self._convert_sql(sql), params)
+        return [dict(row) for row in cursor.fetchall()]
 
     def close(self) -> None:
         """Close the connection. For ":memory:" this also deletes all data."""
@@ -222,10 +267,11 @@ class Database:
             self._connection = None
 
     def create_tables(self) -> None:
-        """Setup method: run schema.sql. Safe to call again (CREATE TABLE IF NOT EXISTS)."""
-        schema = SCHEMA_PATH.read_text(encoding="utf-8")
-        with self.connection:  # transaction: commit if OK, roll back on error
-            self.connection.executescript(schema)
+        """Setup method: run the schema file. Safe to call again (CREATE TABLE IF NOT EXISTS)."""
+        schema = self.schema_path.read_text(encoding="utf-8")
+        # The file holds several statements separated by ";" - run them one by one.
+        statements = [(sql, ()) for sql in schema.split(";") if sql.strip()]
+        self.execute_all(statements)
 
     def __enter__(self) -> "Database":
         """Start of a 'with Database(...) as db:' block: connect and hand back the object."""
@@ -238,7 +284,66 @@ class Database:
 
     def __repr__(self) -> str:
         state = "connected" if self.is_connected else "closed"
-        return f"Database({self._path!r}, {state})"
+        return f"{type(self).__name__}({self._path!r}, {state})"
+
+
+class MySQLDatabase(Database):
+    """A Database on a MySQL server (HT3). Same public methods as Database,
+    so the repositories work with both without any change (polymorphism).
+    """
+
+    schema_path = MYSQL_SCHEMA_PATH  # overrides the class attribute of Database
+
+    def __init__(self, host: str, user: str, password: str, name: str, port: int = 3306) -> None:
+        super().__init__(f"mysql://{user}@{host}:{port}/{name}")  # a label only, no password
+        self._host = host
+        self._user = user
+        self._password = password
+        self._name = name
+        self._port = port
+
+    @property
+    def host(self) -> str:
+        return self._host
+
+    @property
+    def name(self) -> str:
+        """Name of the database (schema) on the MySQL server."""
+        return self._name
+
+    def _open_connection(self):
+        """MySQL version: connect over the network with pymysql."""
+        return pymysql.connect(
+            host=self._host,
+            user=self._user,
+            password=self._password,
+            database=self._name,
+            port=self._port,
+            charset="utf8mb4",  # full UTF-8, e.g. the "ü" in Restmülltonne
+            cursorclass=pymysql.cursors.DictCursor,  # rows come back as dicts
+        )
+
+    def _convert_sql(self, sql: str) -> str:
+        """MySQL uses %s instead of ? as the placeholder."""
+        return sql.replace("?", "%s")
+
+
+def create_database() -> Database:
+    """Choose the database from environment variables (used by the Flask app).
+
+    DB_HOST set     -> MySQLDatabase (needs DB_USER, DB_PASSWORD, DB_NAME, optional DB_PORT)
+    DB_HOST not set -> SQLite file DB_PATH (default "data/waste.db")
+    """
+    host = os.environ.get("DB_HOST")
+    if host:
+        return MySQLDatabase(
+            host=host,
+            user=os.environ.get("DB_USER", "root"),
+            password=os.environ.get("DB_PASSWORD", ""),
+            name=os.environ.get("DB_NAME", "waste_sorting"),
+            port=int(os.environ.get("DB_PORT", "3306")),
+        )
+    return Database(os.environ.get("DB_PATH", "data/waste.db"))
 
 
 class BaseRepository(ABC):
@@ -262,18 +367,15 @@ class BaseRepository(ABC):
 
         The values go in 'params' and replace the '?' placeholders, never into the SQL text.
         """
-        connection = self._database.connection
-        with connection:  # commit on success, roll back on error
-            cursor = connection.execute(sql, params)
-        return cursor.lastrowid
+        return self._database.execute(sql, params)  # works for SQLite and MySQL
 
     def _query(self, sql: str, params: tuple = ()) -> list:
         """Run a SELECT and turn every row into an object with _row_to_object()."""
-        rows = self._database.connection.execute(sql, params).fetchall()
+        rows = self._database.query(sql, params)
         return [self._row_to_object(row) for row in rows]
 
     @abstractmethod
-    def _row_to_object(self, row: sqlite3.Row) -> object:
+    def _row_to_object(self, row: dict) -> object:
         """Turn one database row into a Python object. Each subclass decides how."""
 
 
@@ -324,7 +426,7 @@ class ScanRepository(BaseRepository):
         sql += " ORDER BY timestamp"
         return self._query(sql, tuple(params))
 
-    def _row_to_object(self, row: sqlite3.Row) -> Scan:
+    def _row_to_object(self, row: dict) -> Scan:
         """One row of the scans table -> Scan object (text -> datetime, 0/1 -> bool)."""
         return Scan(
             id=row["id"],
@@ -356,13 +458,10 @@ class RuleRepository(BaseRepository):
                 except (KeyError, ValueError) as error:
                     raise ValueError(f"{path}, line {line_number}: {error}") from error
 
-        connection = self.database.connection
-        with connection:  # one transaction: DELETE + all INSERTs succeed, or nothing changes
-            connection.execute("DELETE FROM rules")
-            connection.executemany(
-                "INSERT INTO rules (region, category, bin, instructions) VALUES (?, ?, ?, ?)",
-                [(r.region, r.category, r.bin, r.instructions) for r in rules],
-            )
+        insert = "INSERT INTO rules (region, category, bin, instructions) VALUES (?, ?, ?, ?)"
+        statements = [("DELETE FROM rules", ())]
+        statements += [(insert, (r.region, r.category, r.bin, r.instructions)) for r in rules]
+        self.database.execute_all(statements)  # one transaction: all succeed, or nothing changes
         return len(rules)
 
     def get_rule(self, region: str, category: str) -> RecyclingRule:
@@ -376,12 +475,10 @@ class RuleRepository(BaseRepository):
 
     def get_regions(self) -> list[str]:
         """All regions that have rules, A-Z (e.g. for the region drop-down on the upload page)."""
-        rows = self.database.connection.execute(
-            "SELECT DISTINCT region FROM rules ORDER BY region"
-        ).fetchall()
+        rows = self.database.query("SELECT DISTINCT region FROM rules ORDER BY region")
         return [row["region"] for row in rows]
 
-    def _row_to_object(self, row: sqlite3.Row) -> RecyclingRule:
+    def _row_to_object(self, row: dict) -> RecyclingRule:
         """One row of the rules table -> RecyclingRule object."""
         return RecyclingRule(row["region"], row["category"], row["bin"], row["instructions"])
 
