@@ -4,6 +4,7 @@ Stores every scan and the disposal rules per region, and gives the other
 subsystems a clean way to read them. Nobody outside this file writes SQL.
 """
 
+import csv
 import sqlite3
 from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
@@ -14,6 +15,7 @@ CATEGORIES = ("recyclable", "compostable", "landfill", "unknown")
 
 # schema.sql sits next to this file, so this works from any working directory (and in Docker).
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
+RULES_CSV_PATH = Path(__file__).parent.parent / "data" / "rules_seed.csv"
 
 
 def _clean_text(value: str, field: str) -> str:
@@ -330,3 +332,52 @@ class ScanRepository(BaseRepository):
             confidence=row["confidence"],
             corrected=bool(row["corrected"]),
         )
+
+
+class RuleRepository(BaseRepository):
+    """Loads and reads the disposal rules (one per region + category)."""
+
+    def load_from_csv(self, path: str | Path = RULES_CSV_PATH) -> int:
+        """Setup method: replace all rules with the ones in the CSV file. Returns how many.
+
+        All or nothing: every line is checked first, and the database is changed in
+        one transaction, so a bad file never leaves half the rules behind.
+        """
+        rules = []
+        with open(path, newline="", encoding="utf-8") as file:
+            for line_number, row in enumerate(csv.DictReader(file), start=2):  # line 1 = header
+                try:
+                    rules.append(
+                        RecyclingRule(row["region"], row["category"], row["bin"], row["instructions"])
+                    )
+                except (KeyError, ValueError) as error:
+                    raise ValueError(f"{path}, line {line_number}: {error}") from error
+
+        connection = self.database.connection
+        with connection:  # one transaction: DELETE + all INSERTs succeed, or nothing changes
+            connection.execute("DELETE FROM rules")
+            connection.executemany(
+                "INSERT INTO rules (region, category, bin, instructions) VALUES (?, ?, ?, ?)",
+                [(r.region, r.category, r.bin, r.instructions) for r in rules],
+            )
+        return len(rules)
+
+    def get_rule(self, region: str, category: str) -> RecyclingRule:
+        """Return the rule for this region and category. Raises LookupError if there is none."""
+        rules = self._query(
+            "SELECT * FROM rules WHERE region = ? AND category = ?", (region, category)
+        )
+        if not rules:
+            raise LookupError(f"No rule for region {region!r} and category {category!r}")
+        return rules[0]  # the primary key (region, category) guarantees at most one
+
+    def get_regions(self) -> list[str]:
+        """All regions that have rules, A-Z (e.g. for the region drop-down on the upload page)."""
+        rows = self.database.connection.execute(
+            "SELECT DISTINCT region FROM rules ORDER BY region"
+        ).fetchall()
+        return [row["region"] for row in rows]
+
+    def _row_to_object(self, row: sqlite3.Row) -> RecyclingRule:
+        """One row of the rules table -> RecyclingRule object."""
+        return RecyclingRule(row["region"], row["category"], row["bin"], row["instructions"])
