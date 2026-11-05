@@ -132,7 +132,3 @@ The other subsystem diagrams will be added when supplied by their owners.
 ## Team video
 
 _Link added with each homework assignment._
-
----
-
-_Generated with the assistance of AI._
