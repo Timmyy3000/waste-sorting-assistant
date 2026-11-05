@@ -434,3 +434,20 @@ if __name__ == "__main__":
             rule = rules.get_rule(scan.region, scan.category)
             print(scan)
             print(f"   -> {rule.bin}: {rule.instructions}\n")
+
+    # Demo for the HT2 video: a stream of ScanEvents flows through DbSink into the database.
+    print("=== HT2: stream -> DbSink -> database ===")
+    with Database() as db:
+        scans = ScanRepository(db)
+        sink = DbSink(scans)
+        events = [
+            ScanEvent(datetime(2026, 11, 6, 8, 0), "Berlin", "recyclable", "tin can", 0.95),
+            ScanEvent(datetime(2026, 11, 6, 8, 5), "Dortmund", "landfill", "chip bag", 0.81),
+            ScanEvent(datetime(2026, 11, 6, 8, 10), "Munich", "compostable", "apple core", 0.67),
+        ]
+        for event in sink.process(iter(events)):  # pulls ONE event at a time through the generator
+            print(f"saved {sink.saved}: {event.region} / {event.category} / {event.material}")
+
+        print(f"\nRead back with get_scans(): {len(scans.get_scans())} scans")
+        for scan in scans.get_scans():
+            print("  ", scan)
