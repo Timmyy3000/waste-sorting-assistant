@@ -22,3 +22,18 @@ def test_config_properties():
     assert config.upload_limit == 1024
     assert config.allowed_types == {"png"}
     assert create_app().config["MAX_CONTENT_LENGTH"] == 5 * 1024 * 1024
+
+
+def test_pipeline_chains_without_consuming_source_early():
+    from app.ai_services import SimulatedScanSource
+    from app.pipeline_runner import Pipeline
+    from demo_pipeline import DemoRegionFilter
+
+    source = SimulatedScanSource(count=10, seed=1)
+    original = Pipeline(source)
+    filtered = original | DemoRegionFilter("Dortmund")
+    assert source.produced == 0
+    events = list(filtered)
+    assert events
+    assert all(event.region == "Dortmund" for event in events)
+    assert source.produced == 10
