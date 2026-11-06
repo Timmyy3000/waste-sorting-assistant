@@ -1,18 +1,34 @@
 """Configuration for the web application."""
 
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 
 class AppConfig:
     """Store upload and database settings for the application."""
 
     def __init__(self) -> None:
+        load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
         self._upload_limit = 5 * 1024 * 1024
         self._allowed_types = {"jpg", "jpeg", "png"}
         self._database_host = os.getenv("DB_HOST", "")
         self._database_name = os.getenv("DB_NAME", "waste_sorting")
         self._database_user = os.getenv("DB_USER", "")
         self._database_password = os.getenv("DB_PASSWORD", "")
+
+    def configure_ai(self) -> None:
+        """Load a server-side secret file without exposing it to the browser."""
+        key_file = os.getenv("OPENAI_API_KEY_FILE")
+        if not os.getenv("OPENAI_API_KEY") and key_file:
+            try:
+                key = Path(key_file).read_text(encoding="utf-8-sig").strip()
+            except OSError:
+                raise RuntimeError("The configured server API key file cannot be read.") from None
+            if not key:
+                raise RuntimeError("The configured server API key file is empty.")
+            os.environ["OPENAI_API_KEY"] = key
 
     @property
     def upload_limit(self) -> int:

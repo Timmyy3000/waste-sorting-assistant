@@ -6,3 +6,8 @@ venv/
 *.db
 .pytest_cache/
 .DS_Store
+.coverage*
+htmlcov/
+secrets/
+apikey.txt
+api-key.txt
