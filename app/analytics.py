@@ -7,6 +7,7 @@ opens a database connection or runs SQL.
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Iterator, Mapping
 from datetime import date
 from io import BytesIO
@@ -267,3 +268,34 @@ class RunningRecyclingRateTracker(Processor):
             if event.category in _RECYCLING_STREAMS:
                 self._diverted += 1
             yield event
+
+
+def build_dashboard_payload(
+    repository: ScanRepository,
+    *,
+    region: str | None = None,
+    start: date | None = None,
+    end: date | None = None,
+) -> dict[str, object]:
+    """JSON-friendly dashboard data plus a PNG chart for Moye's dashboard route.
+
+    ``repository`` must be a :class:`~app.db.ScanRepository` so scans are read only
+    through ``get_scans()`` (subsystem B). Returns native Python types and a
+    base64-encoded PNG for easy JSON or HTML embedding.
+    """
+    calculator = StatsCalculator(repository)
+    stats = calculator.get_stats(region=region, start=start, end=end)
+    renderer = ChartRenderer()
+    renderer.setup()
+    png_bytes = renderer.render_category_bar_chart(stats)
+    return {
+        "filters": {
+            "region": region,
+            "start": start.isoformat() if start is not None else None,
+            "end": end.isoformat() if end is not None else None,
+        },
+        "total_scans": stats.total_scans,
+        "recycling_rate": round(stats.recycling_rate, 4),
+        "category_counts": stats.category_counts,
+        "chart_png_base64": base64.b64encode(png_bytes).decode("ascii"),
+    }
