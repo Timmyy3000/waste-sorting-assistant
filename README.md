@@ -62,13 +62,14 @@ Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworka
 ### Subsystem D (Web App & Integration)
 
 Subsystem D's implemented classes. Solid triangle arrows show inheritance;
-dashed arrows show dependencies. The pages are placeholders and do not yet
-connect to the other subsystems.
+dashed arrows show dependencies. This HT1 branch demonstrates the OOP web
+structure with styled preview pages; live AI/database integration starts in HT3.
 
 ```mermaid
 classDiagram
     direction LR
     class AppConfig {
+        +__init__()
         +upload_limit: int
         +allowed_types: set
         +database_host: str
@@ -77,19 +78,24 @@ classDiagram
         +database_password: str
     }
     class AppFactory {
+        +__init__(config)
         +config: AppConfig
         +create() Flask
     }
     class BaseBlueprint {
         <<abstract>>
+        -_blueprint: Blueprint
+        +__init__(name, url_prefix)
         +blueprint: Blueprint
         +register_routes()
     }
     class ScanBlueprint {
+        +__init__()
         +register_routes()
         +scan()
     }
     class DashboardBlueprint {
+        +__init__()
         +register_routes()
         +dashboard()
     }
@@ -103,6 +109,13 @@ classDiagram
 `create_app()` calls `AppFactory.create()`, which registers the two route
 groups. Configuration lives in an `AppConfig` object; the web layer does not
 yet store scan data. The dashed arrows represent dependencies, not inheritance.
+
+**Where D's state lives:** `AppConfig` owns private configuration attributes;
+`AppFactory.config` holds that configuration object; `BaseBlueprint._blueprint`
+holds the Flask route group inherited by each concrete subclass. Properties
+provide controlled access. Flask calls `scan()` or `dashboard()` after matching
+the request URL. The shared templates and local CSS/JavaScript provide the
+green-and-white interface; preview actions are explicitly disabled on HT1.
 
 ### Subsystem B (Data & Rules)
 
