@@ -64,7 +64,7 @@ Open <http://localhost:5000/scan> or <http://localhost:5000/dashboard>.
 
 ## Branches
 
-Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworkassignment002`, ÔÇª
+Each homework assignment has its own branch: `Homeworkassignment001` through `Homeworkassignment004`.
 
 ## UML class diagrams
 
@@ -105,9 +105,13 @@ classDiagram
         +stats()
         +classify()
     }
+    class WebAppError
+    class UploadError
     BaseBlueprint <|-- ScanBlueprint
     BaseBlueprint <|-- DashboardBlueprint
     BaseBlueprint <|-- ApiBlueprint
+    Exception <|-- WebAppError
+    WebAppError <|-- UploadError
     AppFactory ..> AppConfig : configures
     AppFactory ..> ScanBlueprint : registers
     AppFactory ..> DashboardBlueprint : registers
@@ -116,6 +120,39 @@ classDiagram
     ScanBlueprint ..> ScanRepository : saves
     ScanBlueprint ..> RuleRepository : reads rule
     DashboardBlueprint ..> StatsCalculator : builds dashboard
+```
+
+### Subsystem A (AI Services)
+
+```mermaid
+classDiagram
+    class Classification {
+        +category: str
+        +material: str
+        +confidence: float
+        +needs_confirmation: bool
+    }
+    class AIClient {
+        +model: str
+        +connect()
+        +call_vision(prompt, image_bytes, mime_type) str
+        +call_text(prompt) str
+    }
+    class AIService {
+        +classify_image(image_bytes) Classification
+        +generate_tip(category, region) str
+        +classify_upload(image_bytes, region) dict
+    }
+    class AIServiceError
+    class InvalidImageError
+    class ImageTooLargeError
+    class AIUnavailableError
+    AIService o-- AIClient
+    AIService ..> Classification : creates
+    Exception <|-- AIServiceError
+    AIServiceError <|-- InvalidImageError
+    AIServiceError <|-- ImageTooLargeError
+    AIServiceError <|-- AIUnavailableError
 ```
 
 `create_app()` calls `AppFactory.create()`, which loads rules and registers the
@@ -189,10 +226,16 @@ classDiagram
         +saved: int
         +process(events) Iterator~ScanEvent~
     }
+    class DatabaseError
+    class InvalidScanError
+    class RuleNotFoundError
     Database <|-- MySQLDatabase
     BaseRepository <|-- ScanRepository
     BaseRepository <|-- RuleRepository
     Processor <|-- DbSink
+    Exception <|-- DatabaseError
+    DatabaseError <|-- InvalidScanError
+    DatabaseError <|-- RuleNotFoundError
     BaseRepository o-- Database : uses
     DbSink o-- ScanRepository : saves with
     ScanRepository ..> Scan : creates
@@ -243,15 +286,28 @@ classDiagram
     class ScanRepository {
         +get_scans(...) list~Scan~
     }
+    class AnalyticsError
+    class InvalidAnalyticsInputError
+    class NoDataError
     Processor <|-- RegionFilter
     Processor <|-- CategoryTally
     Processor <|-- RunningRecyclingRateTracker
+    Exception <|-- AnalyticsError
+    AnalyticsError <|-- InvalidAnalyticsInputError
+    AnalyticsError <|-- NoDataError
     StatsCalculator ..> ScanRepository : reads scans only
     StatsCalculator ..> RecyclingStats : builds
     ChartRenderer ..> RecyclingStats : plots
 ```
 
 HT3: ``DashboardBlueprint`` (subsystem D's routes file) calls ``build_dashboard_payload()`` from ``analytics.py``, which uses only ``ScanRepository.get_scans()`` and returns JSON-friendly fields plus a base64 PNG. Endpoints: ``GET /dashboard`` (HTML + chart) and ``GET /dashboard/data`` (JSON).
+
+## Testing and coverage
+
+Run `pytest` for the 15 team tests (A: 4, B: 4, C: 4, D: 3). Run
+`pytest --cov=app` for coverage. The current local run passes all 15 tests and
+reports 71% statement coverage for `app`; coverage identifies untested lines,
+not whether the tested behaviour is correct.
 
 ## Team video
 

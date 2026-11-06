@@ -1,7 +1,7 @@
-﻿"""Subsystem C ÔÇô Dashboard & Analytics (owner: Onyedikachi Onah).
+﻿"""Subsystem C - Dashboard & Analytics (owner: Onyedikachi Onah).
 
 Aggregates scan history for charts and JSON-friendly stats. All scan rows are read
-only through ``ScanRepository.get_scans()`` from subsystem B ÔÇö this module never
+only through ``ScanRepository.get_scans()`` from subsystem B; this module never
 opens a database connection or runs SQL.
 """
 
@@ -26,7 +26,7 @@ class AnalyticsError(Exception):
 
 
 class InvalidAnalyticsInputError(AnalyticsError):
-    """A value passed to analytics code is not allowed (bad category, negative count, ÔÇª)."""
+    """A value passed to analytics code is not allowed (bad category, negative count, etc.)."""
 
 
 class NoDataError(AnalyticsError):
@@ -109,7 +109,7 @@ class RecyclingStats:
 
     @property
     def recycling_rate(self) -> float:
-        """Share of scans that are recyclable or compostable (0.0ÔÇô1.0)."""
+        """Share of scans that are recyclable or compostable (0.0 to 1.0)."""
         if self._total_scans == 0:
             return 0.0
         diverted = sum(self._category_counts[c] for c in _RECYCLING_STREAMS)

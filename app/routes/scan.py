@@ -7,6 +7,7 @@ from flask import current_app, render_template, request
 from app.ai_services import AIService
 from app.db import RuleRepository, Scan, ScanRepository, create_database
 from app.routes.base import BaseBlueprint
+from app.routes.errors import UploadError
 
 
 class ScanBlueprint(BaseBlueprint):
@@ -27,11 +28,11 @@ class ScanBlueprint(BaseBlueprint):
         upload = request.files.get("photo")
         region = request.form.get("region", "").strip()
         if upload is None or not upload.filename or not region:
-            return render_template("error.html", message="Choose a photo and region."), 400
+            raise UploadError("Choose a photo and region.")
 
         extension = upload.filename.rsplit(".", 1)[-1].lower() if "." in upload.filename else ""
         if extension not in current_app.config["ALLOWED_TYPES"]:
-            return render_template("error.html", message="Only JPEG and PNG files are allowed."), 400
+            raise UploadError("Only JPEG and PNG files are allowed.")
 
         result = AIService().classify_upload(upload.read(), region)
         with create_database() as database:

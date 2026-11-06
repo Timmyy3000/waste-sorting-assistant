@@ -8,6 +8,7 @@ from app.ai_services import AIService
 from app.analytics import build_dashboard_payload
 from app.db import ScanRepository, create_database
 from app.routes.base import BaseBlueprint
+from app.routes.errors import UploadError
 
 
 class ApiBlueprint(BaseBlueprint):
@@ -40,5 +41,5 @@ class ApiBlueprint(BaseBlueprint):
         upload = request.files.get("photo")
         region = request.form.get("region", "").strip()
         if upload is None or not upload.filename or not region:
-            return jsonify({"error": "Choose a photo and region."}), 400
+            raise UploadError("Choose a photo and region.")
         return jsonify(AIService().classify_upload(upload.read(), region))
