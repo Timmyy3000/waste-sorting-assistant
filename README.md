@@ -123,9 +123,10 @@ classDiagram
     Pipeline --> Processor
 ```
 
-Run `python demo_pipeline.py` for a simulated stream. Its region filter is a
-temporary stand-in; the team's filter, counter, and database sink are not yet
-available, so this is not a complete database pipeline.
+Run `python demo_pipeline.py` for a simulated stream (uses a temporary
+``DemoRegionFilter`` in that file). Subsystem C provides ``RegionFilter``,
+``CategoryTally``, and ``RunningRecyclingRateTracker`` in ``analytics.py`` for
+pipeline chaining alongside Caleb's ``DbSink``.
 
 The other subsystem diagrams will be added when supplied by their owners.
 
@@ -152,9 +153,30 @@ classDiagram
         +render_category_bar_chart(stats) bytes
         +setup()
     }
+    class Processor {
+        <<abstract>>
+        +process(events) Iterator
+    }
+    class RegionFilter {
+        +region: str
+        +process(events) Iterator
+    }
+    class CategoryTally {
+        +counts: dict
+        +process(events) Iterator
+        +setup()
+    }
+    class RunningRecyclingRateTracker {
+        +running_rate: float
+        +process(events) Iterator
+        +setup()
+    }
     class ScanRepository {
         +get_scans(...) list~Scan~
     }
+    Processor <|-- RegionFilter
+    Processor <|-- CategoryTally
+    Processor <|-- RunningRecyclingRateTracker
     StatsCalculator ..> ScanRepository : reads scans only
     StatsCalculator ..> RecyclingStats : builds
     ChartRenderer ..> RecyclingStats : plots
