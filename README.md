@@ -10,10 +10,10 @@ Capstone project, Compact Programming Course (Python), FH Dortmund, WS 2026/27.
 
 | Member | Subsystem | Files |
 |---|---|---|
-| Oluwatimilehin Ogunme | A ┬À AI Services | `ai_services.py` |
-| Terkuma Caleb Lumun | B ┬À Data & Rules | `db.py`, `schema.sql`, `schema_mysql.sql`, `data/rules_seed.csv`, `tests/test_db.py` |
-| Onyedikachi Onah | C ┬À Dashboard & Analytics | `analytics.py` |
-| Moye Nyuysoni Glein Perry | D ┬À Web App & Integration | `app/__init__.py`, `app/routes/`, `app/templates/`, `Dockerfile`, `README.md` |
+| Oluwatimilehin Ogunme | A - AI Services | `ai_services.py` |
+| Terkuma Caleb Lumun | B - Data & Rules | `db.py`, `schema.sql`, `schema_mysql.sql`, `data/rules_seed.csv`, `tests/test_db.py` |
+| Onyedikachi Onah | C - Dashboard & Analytics | `analytics.py` |
+| Moye Nyuysoni Glein Perry | D - Web App & Integration | `app/__init__.py`, `app/routes/`, `app/templates/`, `Dockerfile`, `README.md` |
 
 ## Architecture
 
@@ -33,10 +33,10 @@ flowchart LR
 app/                  Flask app
   __init__.py         create_app()
   templates/          Jinja templates (D)
-  ai_services.py      A ┬À AI Services
-  db.py, schema*.sql  B ┬À Data & Rules
-  analytics.py        C ┬À Dashboard & Analytics (RecyclingStats, StatsCalculator, ChartRenderer)
-data/rules_seed.csv   B ┬À recycling rules
+  ai_services.py      A - AI Services
+  db.py, schema*.sql  B - Data & Rules
+  analytics.py        C - Dashboard & Analytics (RecyclingStats, StatsCalculator, ChartRenderer)
+data/rules_seed.csv   B - recycling rules
 tests/                pytest tests, one file per subsystem
 requirements.txt      Python packages
 ```
@@ -96,103 +96,14 @@ quota, and managed secrets. No public hosting has been provisioned by this repo.
 ## Branches
 
 Each homework assignment has its own branch: `Homeworkassignment001` through `Homeworkassignment004`.
+`main` is the final integrated application. The homework branches preserve their
+assignment-specific versions; contributor branches are removed only after their
+commits are verified as included in the matching homework branch.
 
 ## UML class diagrams
 
-### Subsystem D (Web App & Integration)
-
-Subsystem D's implemented classes. Solid triangle arrows show inheritance and
-dashed arrows show dependencies.
-
-```mermaid
-classDiagram
-    direction LR
-    class AppConfig {
-        +__init__()
-        +upload_limit: int
-        +allowed_types: set
-        +database_host: str
-        +database_name: str
-        +database_user: str
-        +database_password: str
-        +configure_ai()
-    }
-    class AppFactory {
-        +__init__(config)
-        +config: AppConfig
-        +create() Flask
-        #_register_error_handlers(app)
-    }
-    class BaseBlueprint {
-        <<abstract>>
-        -_blueprint: Blueprint
-        +__init__(name, url_prefix)
-        +blueprint: Blueprint
-        +register_routes()
-    }
-    class ScanBlueprint {
-        +__init__()
-        +register_routes()
-        +scan()
-    }
-    class ScanWorkflow {
-        -_service: AIService
-        +__init__(service)
-        +get_regions() list~str~
-        +submit(upload, region) dict
-    }
-    class DashboardBlueprint {
-        +__init__()
-        +register_routes()
-        +dashboard()
-        +dashboard_data()
-    }
-    class ApiBlueprint {
-        +__init__()
-        +register_routes()
-        +stats()
-        +classify()
-    }
-    class WebAppError
-    class UploadError
-    class Pipeline {
-        -_source: Source
-        -_processors: list~Processor~
-        +__or__(processor) Pipeline
-        +run() Iterator~ScanEvent~
-        +__iter__() Iterator~ScanEvent~
-    }
-    BaseBlueprint <|-- ScanBlueprint
-    BaseBlueprint <|-- DashboardBlueprint
-    BaseBlueprint <|-- ApiBlueprint
-    Exception <|-- WebAppError
-    WebAppError <|-- UploadError
-    AppFactory ..> AppConfig : configures
-    AppFactory ..> ScanBlueprint : registers
-    AppFactory ..> DashboardBlueprint : registers
-    AppFactory ..> ApiBlueprint : registers
-    ScanBlueprint ..> ScanWorkflow : submits upload
-    ApiBlueprint ..> ScanWorkflow : same workflow
-    ScanWorkflow ..> AIService : classifies and tips
-    ScanWorkflow ..> ScanRepository : saves
-    ScanWorkflow ..> RuleRepository : checks local rules
-    ScanWorkflow ..> UploadError : rejects invalid input
-    Pipeline o-- Source : reads
-    Pipeline o-- Processor : chains
-```
-
-**D data flow:** `create_app()` → `AppFactory.create()` → config, rule setup,
-blueprint registration, error handlers. Flask calls `scan()` for an upload;
-`ScanWorkflow.submit()` validates the file/region, calls A, reads B's rule,
-and saves through B's repository. Both HTML and JSON routes use this workflow.
-`DashboardBlueprint` and `ApiBlueprint` use `dashboard_payload()`, which calls
-C's `build_dashboard_payload()`. The web adapter uses C's category counts to
-exclude `unknown` scans from the agreed recycling-rate denominator.
-
-The responsive Jinja templates share `base.html`, SVG icons, an upload partial,
-local CSS, and small JavaScript enhancements. No CDN, frontend framework or
-browser-side credential is required. Earlier homework branches keep their own
-smaller D diagrams; HT1/HT2 pages explicitly identify preview-only features.
+The diagrams follow the team presentation order A, B, C, then D.
+Only classes implemented on this assignment branch are shown.
 
 ### Subsystem A (AI Services)
 
@@ -226,33 +137,6 @@ classDiagram
     AIServiceError <|-- ImageTooLargeError
     AIServiceError <|-- AIUnavailableError
 ```
-
-`create_app()` calls `AppFactory.create()`, which loads rules and registers the
-three route groups. Each request opens and closes its own database connection.
-
-HT2 stream runner:
-
-```mermaid
-classDiagram
-    class Pipeline {
-        +run() Iterator
-        +__or__(processor) Pipeline
-        +__iter__() Iterator
-    }
-    class Source {
-        <<abstract>>
-        +__iter__() Iterator
-    }
-    class Processor {
-        <<abstract>>
-        +process(events) Iterator
-    }
-    Pipeline --> Source
-    Pipeline --> Processor
-```
-
-Run `python demo_pipeline.py` for an integrated stream through subsystem C's
-processors and subsystem B's database sink.
 
 ### Subsystem B (Data & Rules)
 
@@ -374,6 +258,117 @@ classDiagram
 
 HT3: ``DashboardBlueprint`` (subsystem D's routes file) calls ``build_dashboard_payload()`` from ``analytics.py``, which uses only ``ScanRepository.get_scans()`` and returns JSON-friendly fields plus a base64 PNG. Endpoints: ``GET /dashboard`` (HTML + chart) and ``GET /dashboard/data`` (JSON).
 
+### Subsystem D (Web App & Integration)
+
+Moye's classes are shown last, matching the presentation order. Solid triangle
+arrows mean inheritance; dashed arrows mean dependencies.
+
+```mermaid
+classDiagram
+    direction TB
+    class AppConfig {
+        +__init__()
+        +upload_limit: int
+        +allowed_types: set
+        +database_host: str
+        +database_name: str
+        +database_user: str
+        +database_password: str
+        +configure_ai()
+    }
+    class AppFactory {
+        +__init__(config)
+        +config: AppConfig
+        +create() Flask
+        #_register_error_handlers(app)
+    }
+    class BaseBlueprint {
+        <<abstract>>
+        -_blueprint: Blueprint
+        +__init__(name, url_prefix)
+        +blueprint: Blueprint
+        +register_routes()
+    }
+    class ScanBlueprint {
+        +__init__()
+        +register_routes()
+        +scan()
+    }
+    class ScanWorkflow {
+        -_service: AIService
+        +__init__(service)
+        +get_regions() list~str~
+        +submit(upload, region) dict
+    }
+    class DashboardBlueprint {
+        +__init__()
+        +register_routes()
+        +dashboard()
+        +dashboard_data()
+    }
+    class ApiBlueprint {
+        +__init__()
+        +register_routes()
+        +stats()
+        +classify()
+    }
+    class WebAppError
+    class UploadError
+    BaseBlueprint <|-- ScanBlueprint
+    BaseBlueprint <|-- DashboardBlueprint
+    BaseBlueprint <|-- ApiBlueprint
+    Exception <|-- WebAppError
+    WebAppError <|-- UploadError
+    AppFactory ..> AppConfig : configures
+    AppFactory ..> ScanBlueprint : registers
+    AppFactory ..> DashboardBlueprint : registers
+    AppFactory ..> ApiBlueprint : registers
+    ScanBlueprint ..> ScanWorkflow : submits upload
+    ApiBlueprint ..> ScanWorkflow : same workflow
+    ScanWorkflow ..> AIService : classifies and tips
+    ScanWorkflow ..> ScanRepository : saves
+    ScanWorkflow ..> RuleRepository : checks local rules
+    ScanWorkflow ..> UploadError : rejects invalid input
+```
+
+#### D's pipeline runner
+
+```mermaid
+classDiagram
+    direction LR
+    class Pipeline {
+        -_source: Source
+        -_processors: list~Processor~
+        +__init__(source, processors)
+        +__or__(processor) Pipeline
+        +run() Iterator~ScanEvent~
+        +__iter__() Iterator~ScanEvent~
+    }
+    class Source {
+        <<abstract>>
+        +__iter__() Iterator
+    }
+    class Processor {
+        <<abstract>>
+        +process(events) Iterator
+    }
+    Pipeline o-- Source : reads
+    Pipeline o-- Processor : chains
+```
+
+**D data flow:** `create_app()` calls `AppFactory.create()` to configure the app,
+load rules, register blueprints and install error handlers. Flask calls `scan()`
+for an upload; `ScanWorkflow.submit()` validates it, calls A, reads B's rule, and
+saves through B's repository. HTML and JSON routes share this workflow.
+`dashboard_payload()` calls C's `build_dashboard_payload()` and adapts its counts
+to exclude unknown items from the recycling-rate denominator. Connections are
+opened and closed per request. Source and Processor belong to Timi; Pipeline
+belongs to Moye. Run `python demo_pipeline.py` for the complete simulated chain.
+
+Shared Jinja templates, local CSS and small JavaScript enhancements provide the
+interface. Credentials are read by the server, never by the browser. HT1/HT2
+contain styled previews; live integration starts in HT3.
+
 ## Testing and coverage
 
 Run `pytest` for the team tests. The original 15-test target is retained and
@@ -384,7 +379,7 @@ separately and do not make automated tests depend on the network or a real key.
 Run `pytest --cov=app --cov-branch` for statement and branch coverage. Coverage
 shows exercised code, not proof that every behaviour is correct.
 
-Latest local verification on HT4: **33 tests passed**, with **78% combined
+Latest local verification on HT4: **35 tests passed**, with **78% combined
 statement/branch coverage** using the command above. The KI:connect live smoke
 test also passed on an isolated SQLite database with a synthetic bottle image;
 it did not add artificial scans to the normal application database.
