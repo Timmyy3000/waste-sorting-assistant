@@ -108,6 +108,7 @@ dashed arrows show dependencies.
 classDiagram
     direction LR
     class AppConfig {
+        +__init__()
         +upload_limit: int
         +allowed_types: set
         +database_host: str
@@ -117,29 +118,37 @@ classDiagram
         +configure_ai()
     }
     class AppFactory {
+        +__init__(config)
         +config: AppConfig
         +create() Flask
+        #_register_error_handlers(app)
     }
     class BaseBlueprint {
         <<abstract>>
+        -_blueprint: Blueprint
+        +__init__(name, url_prefix)
         +blueprint: Blueprint
         +register_routes()
     }
     class ScanBlueprint {
+        +__init__()
         +register_routes()
         +scan()
     }
     class ScanWorkflow {
         -_service: AIService
+        +__init__(service)
         +get_regions() list~str~
         +submit(upload, region) dict
     }
     class DashboardBlueprint {
+        +__init__()
         +register_routes()
         +dashboard()
         +dashboard_data()
     }
     class ApiBlueprint {
+        +__init__()
         +register_routes()
         +stats()
         +classify()
@@ -374,6 +383,11 @@ JSON errors, date filters and static assets. Live-provider smoke checks are run
 separately and do not make automated tests depend on the network or a real key.
 Run `pytest --cov=app --cov-branch` for statement and branch coverage. Coverage
 shows exercised code, not proof that every behaviour is correct.
+
+Latest local verification on HT4: **33 tests passed**, with **78% combined
+statement/branch coverage** using the command above. The KI:connect live smoke
+test also passed on an isolated SQLite database with a synthetic bottle image;
+it did not add artificial scans to the normal application database.
 
 ## Team video
 
