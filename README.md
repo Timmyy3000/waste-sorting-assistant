@@ -171,6 +171,13 @@ classDiagram
         +process(events) Iterator
         +setup()
     }
+    class AnalyticsError {
+        <<base>>
+    }
+    class InvalidAnalyticsInputError
+    class NoDataError
+    AnalyticsError <|-- InvalidAnalyticsInputError
+    AnalyticsError <|-- NoDataError
     class ScanRepository {
         +get_scans(...) list~Scan~
     }
@@ -183,6 +190,8 @@ classDiagram
 ```
 
 HT3: ``DashboardBlueprint`` (subsystem D's routes file) calls ``build_dashboard_payload()`` from ``analytics.py``, which uses only ``ScanRepository.get_scans()`` and returns JSON-friendly fields plus a base64 PNG. Endpoints: ``GET /dashboard`` (HTML + chart) and ``GET /dashboard/data`` (JSON).
+
+HT4: subsystem C defines ``AnalyticsError``, ``InvalidAnalyticsInputError``, and ``NoDataError`` in ``analytics.py``; ``tests/test_analytics.py`` holds four pytest cases for recycling-rate logic, empty data, invalid input, and chart / ``NoDataError`` behaviour.
 
 ## Team video
 
