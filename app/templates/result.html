@@ -1,16 +1,16 @@
-<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="description" content="Waste classification result."><title>Classification result</title></head>
-<body>
-  <h1>Classification result</h1>
-  <p>Category: <strong>{{ result.category }}</strong></p>
-  <p>Material: {{ result.material }}</p>
-  <p>Confidence: {{ "%.0f"|format(result.confidence * 100) }}%</p>
-  {% if result.needs_confirmation %}<p>Please confirm this low-confidence result.</p>{% endif %}
-  <p>Bin: {{ rule.bin }}</p>
-  <p>Local rule: {{ rule.instructions }}</p>
-  <p>Tip: {{ result.tip }}</p>
-  <p>Saved scan: {{ scan_id }}</p>
-  <a href="{{ url_for('scan.scan') }}">Scan another item</a>
-</body>
-</html>
+{% extends 'base.html' %}
+{% block title %}Your sorting guide · EcoSort{% endblock %}
+{% block content %}
+<section class="page-intro"><a class="back-link" href="{{ url_for('index') }}">← Back to sorting</a><div class="eyebrow"><span class="eyebrow-line"></span> A CLEARER NEXT STEP</div><h1>Your item. <span>Sorted.</span></h1><p>Here's what we found and where it goes in {{ result.region }}.</p></section>
+<div class="result-grid">
+  <section class="card result-card">
+    <div class="card-header"><h2>Classification result</h2><span class="badge badge-green">{{ icon('check', 14) }} Scan saved</span></div>
+    <div class="classification-banner {{ result.category }}"><span class="result-symbol">{{ icon('leaf' if result.category == 'compostable' else 'recycle' if result.category == 'recyclable' else 'bin' if result.category == 'landfill' else 'scan', 40) }}</span><div><span class="section-kicker">IDENTIFIED AS</span><h2>{{ result.category|capitalize }}</h2></div></div>
+    <dl class="result-details"><div><dt>Material</dt><dd>{{ result.material }}</dd></div><div><dt>Location</dt><dd>{{ icon('pin', 16) }} {{ result.region }}</dd></div><div><dt>Confidence</dt><dd>{{ '%.0f'|format(result.confidence * 100) }}%</dd></div></dl>
+    <div class="confidence-track"><span style="width: {{ (result.confidence * 100)|round|int }}%"></span></div>
+    {% if result.needs_confirmation or result.category == 'unknown' %}<div class="notice notice-warning">{{ icon('alert', 22) }}<div><strong>Please confirm before disposing.</strong><p>This result needs a closer look. Check the local guidance or ask your recycling centre.</p></div></div>{% else %}<div class="result-note">{{ icon('shield', 17) }} AI guidance is a starting point. Local disposal rules always come first.</div>{% endif %}
+    <div class="result-actions"><a class="button button-primary" href="{{ url_for('index') }}">{{ icon('scan', 18) }} Scan another item {{ icon('arrow', 18) }}</a><a class="button button-secondary" href="{{ url_for('dashboard.dashboard', region=result.region) }}">View dashboard</a></div>
+  </section>
+  <aside class="result-guidance"><section class="bin-card"><span class="soft-icon">{{ icon('bin', 25) }}</span><span class="section-kicker">YOUR LOCAL DISPOSAL GUIDE</span><h2>{{ result.bin }}</h2><p>{{ result.instructions }}</p><span class="location-tag">{{ icon('pin', 15) }} {{ result.region }}</span></section><section class="tip-card"><span class="tip-heading">{{ icon('spark', 20) }} A little tip, a bigger difference.</span><p>{{ result.tip }}</p></section><p class="scan-reference">Scan #{{ result.scan_id }} · Classification saved, photo not stored.</p></aside>
+</div>
+{% endblock %}

@@ -1,18 +1,2 @@
-<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="description" content="Classify a waste item."><title>Scan waste</title></head>
-<body>
-  <h1>Scan waste</h1>
-  <form method="post" enctype="multipart/form-data">
-    <label>Region
-      <select name="region" required>
-        <option value="Dortmund">Dortmund</option>
-        <option value="Berlin">Berlin</option>
-        <option value="Munich">Munich</option>
-      </select>
-    </label>
-    <label>Photo <input type="file" name="photo" accept="image/jpeg,image/png" required></label>
-    <button type="submit">Classify image</button>
-  </form>
-</body>
-</html>
+{% extends 'index.html' %}
+{% block title %}Sort an item · EcoSort{% endblock %}

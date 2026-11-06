@@ -1,15 +1,40 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Find out which bin your waste belongs in.">
-  <title>Waste Sorting Assistant</title>
-</head>
-<body>
-  <main>
-    <h1>Waste Sorting Assistant</h1>
-    <p>Upload a photo of an item to find out which bin it belongs in.</p>
-  </main>
-</body>
-</html>
+{% extends 'base.html' %}
+{% block content %}
+<section class="hero">
+  <div class="eyebrow"><span class="eyebrow-line"></span> LESS GUESSING. MORE RECYCLING.</div>
+  <h1>The right bin.<br><span>A better beginning.</span></h1>
+  <p>Not sure where it goes? Turn a quick photo into clear,<br class="desktop-break"> local recycling guidance. Good habits start here.</p>
+  <div class="hero-chips"><span>{{ icon('spark', 15) }} AI-powered guidance</span><span>{{ icon('pin', 15) }} Local disposal rules</span><span>{{ icon('shield', 15) }} No photo stored</span></div>
+  <span class="hero-watermark" aria-hidden="true">{{ icon('leaf', 190) }}</span>
+</section>
+
+<div class="workspace-grid">
+  <section class="card upload-card" aria-labelledby="upload-heading">
+    <div class="card-header"><div><span class="step-label">YOUR NEXT SMALL STEP</span><h2 id="upload-heading">Let's sort it out.</h2></div><span class="soft-icon">{{ icon('scan', 22) }}</span></div>
+    {% include 'upload_form.html' %}
+  </section>
+
+  <aside class="guidance-column">
+    <section class="how-card">
+      <span class="section-kicker">FROM PHOTO TO THE RIGHT BIN</span>
+      <h2>Simple for you.<br>Better for the planet.</h2>
+      <ol class="steps-list">
+        <li><span class="step-number">01</span><div><h3>Snap your item</h3><p>One item. A clear photo. That's all we need.</p></div></li>
+        <li><span class="step-number">02</span><div><h3>Get a little clarity</h3><p>We'll identify the material and check your local rules.</p></div></li>
+        <li><span class="step-number">03</span><div><h3>Give it the right next step</h3><p>Find the right bin, plus a practical disposal tip.</p></div></li>
+      </ol>
+      <a class="text-link" href="{{ url_for('dashboard.dashboard') }}">See your recycling overview {{ icon('arrow', 17) }}</a>
+    </section>
+    <div class="privacy-note">{{ icon('shield', 21) }}<p><strong>Your photo, just for this scan.</strong><br>Sent to the AI provider for analysis, not saved in our database.</p></div>
+  </aside>
+</div>
+
+<section class="category-section">
+  <div class="section-heading"><h2>A place for every possibility.</h2><p>Four categories. Clearer choices.</p></div>
+  <div class="category-grid">
+    {% for category, heading, detail, symbol in [('recyclable', 'Recyclable', 'A chance to become something new.', 'recycle'), ('compostable', 'Compostable', 'Back to nature, the right way.', 'leaf'), ('landfill', 'Landfill', 'For what cannot be recovered.', 'bin'), ('unknown', 'Needs a closer look', 'When in doubt, check before you sort.', 'scan')] %}
+    <article class="category-tile {{ category }}"><span class="category-symbol">{{ icon(symbol, 22) }}</span><h3>{{ heading }}</h3><p>{{ detail }}</p></article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
