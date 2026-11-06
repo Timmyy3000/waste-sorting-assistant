@@ -53,14 +53,45 @@ flask --app app run             # http://127.0.0.1:5000
 pytest                          # run the tests
 ```
 
-For the complete MySQL setup, create a local `.env` file containing
-`OPENAI_API_KEY=your-key`, then run:
+### AI configuration: one server, many browser users
+
+The API key belongs to the **Flask server**, never to browser JavaScript.
+People using the hosted site do not need a key. Someone running their own
+server needs their own credential or administrator-provided secret.
+
+1. Keep the key in a private file **outside this repository**, readable only by
+   the server account. The provided Desktop key has been copied to a protected
+   local application folder on the development machine; it is not in Git.
+2. Copy `.env.example` to `.env` and set `OPENAI_API_KEY_FILE` to that file's
+   absolute path. Configure `OPENAI_BASE_URL` and `OPENAI_MODEL` as in the example.
+3. Start Flask normally. `AppConfig.configure_ai()` loads the secret server-side.
+   An existing `OPENAI_API_KEY` environment variable takes precedence.
+
+The configured provider is KI:connect at `https://chat.kiconnect.nrw/api/v1`.
+`mistralai-mistral-small-4` was verified with an image-input request. The existing
+subsystem A client uses the OpenAI SDK's `OPENAI_BASE_URL` environment support;
+its implementation is unchanged. Uploaded photos go to this provider for
+classification; only classification records, not photo files, are stored here.
+
+### Docker with MySQL
+
+With the same local `.env` and external key file, run:
 
 ```bash
 docker compose up --build
 ```
 
 Open <http://localhost:5000/scan> or <http://localhost:5000/dashboard>.
+
+Compose mounts the key as `/run/secrets/ai_api_key`; it is not baked into the
+image. `.dockerignore` excludes local configuration, databases and credential
+files. A Docker Compose file secret is a read-only file mount, not an encrypted
+vault: the host administrator still controls it. Never commit the key or `.env`.
+
+The supplied Flask command is a **local development server**, not a public
+deployment. To share the app publicly, deploy the backend behind HTTPS with a
+production WSGI server, authentication/usage limits appropriate to your provider
+quota, and managed secrets. No public hosting has been provisioned by this repo.
 
 ## Branches
 
@@ -77,35 +108,57 @@ dashed arrows show dependencies.
 classDiagram
     direction LR
     class AppConfig {
+        +__init__()
         +upload_limit: int
         +allowed_types: set
         +database_host: str
         +database_name: str
         +database_user: str
         +database_password: str
+        +configure_ai()
     }
     class AppFactory {
+        +__init__(config)
         +config: AppConfig
         +create() Flask
+        #_register_error_handlers(app)
     }
     class BaseBlueprint {
         <<abstract>>
+        -_blueprint: Blueprint
+        +__init__(name, url_prefix)
         +blueprint: Blueprint
         +register_routes()
     }
     class ScanBlueprint {
+        +__init__()
         +register_routes()
         +scan()
     }
+    class ScanWorkflow {
+        -_service: AIService
+        +__init__(service)
+        +get_regions() list~str~
+        +submit(upload, region) dict
+    }
     class DashboardBlueprint {
+        +__init__()
         +register_routes()
         +dashboard()
         +dashboard_data()
     }
     class ApiBlueprint {
+        +__init__()
         +register_routes()
         +stats()
         +classify()
+    }
+    class Pipeline {
+        -_source: Source
+        -_processors: list~Processor~
+        +__or__(processor) Pipeline
+        +run() Iterator~ScanEvent~
+        +__iter__() Iterator~ScanEvent~
     }
     BaseBlueprint <|-- ScanBlueprint
     BaseBlueprint <|-- DashboardBlueprint
@@ -114,10 +167,61 @@ classDiagram
     AppFactory ..> ScanBlueprint : registers
     AppFactory ..> DashboardBlueprint : registers
     AppFactory ..> ApiBlueprint : registers
-    ScanBlueprint ..> AIService : classifies
-    ScanBlueprint ..> ScanRepository : saves
-    ScanBlueprint ..> RuleRepository : reads rule
-    DashboardBlueprint ..> StatsCalculator : builds dashboard
+    ScanBlueprint ..> ScanWorkflow : submits upload
+    ApiBlueprint ..> ScanWorkflow : same workflow
+    ScanWorkflow ..> AIService : classifies and tips
+    ScanWorkflow ..> ScanRepository : saves
+    ScanWorkflow ..> RuleRepository : checks local rules
+    Pipeline o-- Source : reads
+    Pipeline o-- Processor : chains
+```
+
+**D data flow:** `create_app()` → `AppFactory.create()` → config, rule setup,
+blueprint registration, error handlers. Flask calls `scan()` for an upload;
+`ScanWorkflow.submit()` validates the file/region, calls A, reads B's rule,
+and saves through B's repository. Both HTML and JSON routes use this workflow.
+HT3 rejects invalid requests using Werkzeug's `BadRequest`; the custom D
+exception hierarchy is introduced only on the HT4 branch.
+`DashboardBlueprint` and `ApiBlueprint` use `dashboard_payload()`, which calls
+C's `build_dashboard_payload()`. The web adapter uses C's category counts to
+exclude `unknown` scans from the agreed recycling-rate denominator.
+
+The responsive Jinja templates share `base.html`, SVG icons, an upload partial,
+local CSS, and small JavaScript enhancements. No CDN, frontend framework or
+browser-side credential is required. Earlier homework branches keep their own
+smaller D diagrams; HT1/HT2 pages explicitly identify preview-only features.
+
+### Subsystem A (AI Services)
+
+```mermaid
+classDiagram
+    class Classification {
+        +category: str
+        +material: str
+        +confidence: float
+        +needs_confirmation: bool
+    }
+    class AIClient {
+        +model: str
+        +connect()
+        +call_vision(prompt, image_bytes, mime_type) str
+        +call_text(prompt) str
+    }
+    class AIService {
+        +classify_image(image_bytes) Classification
+        +generate_tip(category, region) str
+        +classify_upload(image_bytes, region) dict
+    }
+    class AIServiceError
+    class InvalidImageError
+    class ImageTooLargeError
+    class AIUnavailableError
+    AIService o-- AIClient
+    AIService ..> Classification : creates
+    Exception <|-- AIServiceError
+    AIServiceError <|-- InvalidImageError
+    AIServiceError <|-- ImageTooLargeError
+    AIServiceError <|-- AIUnavailableError
 ```
 
 `create_app()` calls `AppFactory.create()`, which loads rules and registers the
@@ -254,6 +358,16 @@ classDiagram
 ```
 
 HT3: ``DashboardBlueprint`` (subsystem D's routes file) calls ``build_dashboard_payload()`` from ``analytics.py``, which uses only ``ScanRepository.get_scans()`` and returns JSON-friendly fields plus a base64 PNG. Endpoints: ``GET /dashboard`` (HTML + chart) and ``GET /dashboard/data`` (JSON).
+
+## Testing and coverage
+
+Run `pytest` for this branch's tests. Web regression cases cover real SQLite saves,
+mocked classification, invalid regions/files, provider failures, rate handling,
+JSON errors, date filters and static assets. Live-provider smoke checks are run
+separately and do not make automated tests depend on the network or a real key.
+Run `pytest --cov=app --cov-branch` for statement and branch coverage. Coverage
+shows exercised code, not proof that every behaviour is correct.
+The remaining subsystem exception tests and custom D error classes are on HT4.
 
 ## Team video
 

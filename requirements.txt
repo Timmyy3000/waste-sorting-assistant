@@ -4,3 +4,4 @@ openai
 pymysql
 cryptography
 matplotlib
+python-dotenv
