@@ -1,0 +1,5 @@
+{% extends 'base.html' %}
+{% block title %}Let's try that again · EcoSort{% endblock %}
+{% block content %}
+<section class="error-state card"><span class="error-symbol">{{ icon('alert', 42) }}</span><span class="section-kicker">A SMALL BUMP IN THE ROAD</span><h1>Let's try that <span>again.</span></h1><p class="error-message" role="alert">{{ message }}</p><p>No need to guess where it goes. Try another photo or come back in a moment.</p><a class="button button-primary" href="{{ url_for('index') }}">Back to sorting {{ icon('arrow', 18) }}</a></section>
+{% endblock %}

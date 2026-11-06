@@ -33,10 +33,10 @@ flowchart LR
 app/                  Flask app
   __init__.py         create_app()
   templates/          Jinja templates (D)
-  ai_services.py      A · AI Services          (to be added)
-  db.py, schema.sql   B · Data & Rules         (to be added)
+  ai_services.py      A · AI Services
+  db.py, schema.sql   B · Data & Rules
   analytics.py        C · Dashboard & Analytics (RecyclingStats, StatsCalculator, ChartRenderer)
-data/rules_seed.csv   B · recycling rules      (to be added)
+data/rules_seed.csv   B · recycling rules
 tests/                pytest tests, one file per subsystem
 requirements.txt      Python packages
 ```
@@ -62,13 +62,14 @@ Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworka
 ### Subsystem D (Web App & Integration)
 
 Subsystem D's implemented classes. Solid triangle arrows show inheritance;
-dashed arrows show dependencies. The pages are placeholders and do not yet
-connect to the other subsystems.
+dashed arrows show dependencies. This HT2 branch demonstrates the OOP web
+structure with styled preview pages; live AI/database integration starts in HT3.
 
 ```mermaid
 classDiagram
     direction LR
     class AppConfig {
+        +__init__()
         +upload_limit: int
         +allowed_types: set
         +database_host: str
@@ -77,19 +78,24 @@ classDiagram
         +database_password: str
     }
     class AppFactory {
+        +__init__(config)
         +config: AppConfig
         +create() Flask
     }
     class BaseBlueprint {
         <<abstract>>
+        -_blueprint: Blueprint
+        +__init__(name, url_prefix)
         +blueprint: Blueprint
         +register_routes()
     }
     class ScanBlueprint {
+        +__init__()
         +register_routes()
         +scan()
     }
     class DashboardBlueprint {
+        +__init__()
         +register_routes()
         +dashboard()
     }
@@ -104,11 +110,15 @@ classDiagram
 groups. Configuration lives in an `AppConfig` object; the web layer does not
 yet store scan data. The dashed arrows represent dependencies, not inheritance.
 
-HT2 stream runner:
+#### D's HT2 pipeline runner
 
 ```mermaid
 classDiagram
+    direction LR
     class Pipeline {
+        -_source: Source
+        -_processors: list~Processor~
+        +__init__(source, processors)
         +run() Iterator
         +__or__(processor) Pipeline
         +__iter__() Iterator
@@ -128,6 +138,15 @@ classDiagram
 Run `python demo_pipeline.py` for an integrated simulated stream. Events pass
 through subsystem C's region filter, tally and recycling-rate tracker before
 subsystem B's database sink saves them.
+**Where D's state lives:** `AppConfig` owns private configuration attributes;
+`AppFactory.config` holds that configuration object; `BaseBlueprint._blueprint`
+holds the Flask route group inherited by each concrete subclass. Properties
+provide controlled access. Flask calls `scan()` or `dashboard()` after matching
+the request URL. The shared templates and local CSS/JavaScript provide the
+green-and-white interface; preview actions are explicitly disabled on HT2.
+`Pipeline.__or__()` returns a new chain, `run()` connects the lazy streams,
+and `__iter__()` allows a for loop. Source and Processor are Timi's contracts,
+not classes owned by subsystem D.
 
 ### Subsystem B (Data & Rules)
 
@@ -150,27 +169,36 @@ classDiagram
         +instructions: str
     }
     class Database {
+        +schema_path: Path
         +path: str
         +is_connected: bool
+        +connection
         +connect()
         +close()
         +create_tables()
         +execute(sql, params) int
+        +execute_all(statements) int
         +query(sql, params) list~dict~
+        #_open_connection()
+        #_convert_sql(sql) str
     }
     class BaseRepository {
         <<abstract>>
         +database: Database
+        #_execute(sql, params) int
+        #_query(sql, params) list
         #_row_to_object(row)*
     }
     class ScanRepository {
         +save_scan(scan) int
         +get_scans(region, start, end) list~Scan~
+        #_row_to_object(row) Scan
     }
     class RuleRepository {
         +load_from_csv(path) int
         +get_rule(region, category) RecyclingRule
         +get_regions() list~str~
+        #_row_to_object(row) RecyclingRule
     }
     class Processor {
         <<abstract>>
