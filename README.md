@@ -59,63 +59,35 @@ Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworka
 
 ## UML class diagrams
 
-### Subsystem D (Web App & Integration)
+The diagrams follow the team presentation order A, B, C, then D.
+Only classes implemented on this assignment branch are shown.
 
-Subsystem D's implemented classes. Solid triangle arrows show inheritance;
-dashed arrows show dependencies. This HT1 branch demonstrates the OOP web
-structure with styled preview pages; live AI/database integration starts in HT3.
+### Subsystem A (AI Services)
 
 ```mermaid
 classDiagram
-    direction LR
-    class AppConfig {
-        +__init__()
-        +upload_limit: int
-        +allowed_types: set
-        +database_host: str
-        +database_name: str
-        +database_user: str
-        +database_password: str
+    direction TB
+    class Classification {
+        +category: str
+        +material: str
+        +confidence: float
+        +needs_confirmation: bool
+        +to_dict() dict
     }
-    class AppFactory {
-        +__init__(config)
-        +config: AppConfig
-        +create() Flask
+    class AIClient {
+        +model: str
+        +connect()
+        +call_vision(prompt, image_bytes, mime_type) str
+        +call_text(prompt) str
     }
-    class BaseBlueprint {
-        <<abstract>>
-        -_blueprint: Blueprint
-        +__init__(name, url_prefix)
-        +blueprint: Blueprint
-        +register_routes()
+    class AIService {
+        +client: AIClient
+        +classify_image(image_bytes) Classification
+        +generate_tip(category, region) str
     }
-    class ScanBlueprint {
-        +__init__()
-        +register_routes()
-        +scan()
-    }
-    class DashboardBlueprint {
-        +__init__()
-        +register_routes()
-        +dashboard()
-    }
-    BaseBlueprint <|-- ScanBlueprint
-    BaseBlueprint <|-- DashboardBlueprint
-    AppFactory ..> AppConfig : configures
-    AppFactory ..> ScanBlueprint : registers
-    AppFactory ..> DashboardBlueprint : registers
+    AIService o-- AIClient : calls
+    AIService ..> Classification : returns
 ```
-
-`create_app()` calls `AppFactory.create()`, which registers the two route
-groups. Configuration lives in an `AppConfig` object; the web layer does not
-yet store scan data. The dashed arrows represent dependencies, not inheritance.
-
-**Where D's state lives:** `AppConfig` owns private configuration attributes;
-`AppFactory.config` holds that configuration object; `BaseBlueprint._blueprint`
-holds the Flask route group inherited by each concrete subclass. Properties
-provide controlled access. Flask calls `scan()` or `dashboard()` after matching
-the request URL. The shared templates and local CSS/JavaScript provide the
-green-and-white interface; preview actions are explicitly disabled on HT1.
 
 ### Subsystem B (Data & Rules)
 
@@ -206,6 +178,64 @@ classDiagram
     StatsCalculator ..> RecyclingStats : builds
     ChartRenderer ..> RecyclingStats : plots
 ```
+
+### Subsystem D (Web App & Integration)
+
+Subsystem D's implemented classes. Solid triangle arrows show inheritance;
+dashed arrows show dependencies. This HT1 branch demonstrates the OOP web
+structure with styled preview pages; live AI/database integration starts in HT3.
+
+```mermaid
+classDiagram
+    direction TB
+    class AppConfig {
+        +__init__()
+        +upload_limit: int
+        +allowed_types: set
+        +database_host: str
+        +database_name: str
+        +database_user: str
+        +database_password: str
+    }
+    class AppFactory {
+        +__init__(config)
+        +config: AppConfig
+        +create() Flask
+    }
+    class BaseBlueprint {
+        <<abstract>>
+        -_blueprint: Blueprint
+        +__init__(name, url_prefix)
+        +blueprint: Blueprint
+        +register_routes()
+    }
+    class ScanBlueprint {
+        +__init__()
+        +register_routes()
+        +scan()
+    }
+    class DashboardBlueprint {
+        +__init__()
+        +register_routes()
+        +dashboard()
+    }
+    BaseBlueprint <|-- ScanBlueprint
+    BaseBlueprint <|-- DashboardBlueprint
+    AppFactory ..> AppConfig : configures
+    AppFactory ..> ScanBlueprint : registers
+    AppFactory ..> DashboardBlueprint : registers
+```
+
+`create_app()` calls `AppFactory.create()`, which registers the two route
+groups. Configuration lives in an `AppConfig` object; the web layer does not
+yet store scan data. The dashed arrows represent dependencies, not inheritance.
+
+**Where D's state lives:** `AppConfig` owns private configuration attributes;
+`AppFactory.config` holds that configuration object; `BaseBlueprint._blueprint`
+holds the Flask route group inherited by each concrete subclass. Properties
+provide controlled access. Flask calls `scan()` or `dashboard()` after matching
+the request URL. The shared templates and local CSS/JavaScript provide the
+green-and-white interface; preview actions are explicitly disabled on HT1.
 
 ## Team video
 
