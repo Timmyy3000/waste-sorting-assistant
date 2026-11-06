@@ -182,6 +182,8 @@ classDiagram
     ChartRenderer ..> RecyclingStats : plots
 ```
 
+HT3: ``DashboardBlueprint`` (subsystem D's routes file) calls ``build_dashboard_payload()`` from ``analytics.py``, which uses only ``ScanRepository.get_scans()`` and returns JSON-friendly fields plus a base64 PNG. Endpoints: ``GET /dashboard`` (HTML + chart) and ``GET /dashboard/data`` (JSON).
+
 ## Team video
 
 _Link added with each homework assignment._
