@@ -8,6 +8,8 @@
   <meta name="theme-color" content="#146c43">
   <title>{% block title %}EcoSort · Waste Sorting Assistant{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/polish.css') }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
   <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
 </head>
 <body>
@@ -22,7 +24,7 @@
         <a class="nav-link {{ 'active' if request.endpoint in ['index', 'scan.scan'] }}" href="{{ url_for('index') }}">{{ icon('scan', 17) }} Sort an item</a>
         <a class="nav-link {{ 'active' if request.endpoint == 'dashboard.dashboard' }}" href="{{ url_for('dashboard.dashboard') }}">{{ icon('chart', 17) }} Dashboard</a>
       </nav>
-      <span class="header-note"><span class="status-dot"></span> Small actions. Real impact.</span>
+      <span class="header-note">{{ icon('pin', 16) }} Built around your city</span>
     </div>
   </header>
 

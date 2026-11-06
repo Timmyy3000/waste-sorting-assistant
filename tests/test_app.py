@@ -150,7 +150,10 @@ def test_upload_limit_and_404_are_friendly(client):
     assert client.get("/not-a-page").status_code == 404
 
 
-@pytest.mark.parametrize("path", ["/scan", "/dashboard", "/static/css/app.css", "/static/js/app.js"])
+@pytest.mark.parametrize("path", [
+    "/scan", "/dashboard", "/static/css/app.css", "/static/css/polish.css",
+    "/static/js/app.js", "/static/favicon.svg",
+])
 def test_pages_and_assets_are_available(client, path):
     assert client.get(path).status_code == 200
 

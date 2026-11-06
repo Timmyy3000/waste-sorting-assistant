@@ -1,40 +1,42 @@
 {% extends 'base.html' %}
 {% block content %}
-<section class="hero">
-  <div class="eyebrow"><span class="eyebrow-line"></span> LESS GUESSING. MORE RECYCLING.</div>
-  <h1>The right bin.<br><span>A better beginning.</span></h1>
-  <p>Not sure where it goes? Turn a quick photo into clear,<br class="desktop-break"> local recycling guidance. Good habits start here.</p>
-  <div class="hero-chips"><span>{{ icon('spark', 15) }} AI-powered guidance</span><span>{{ icon('pin', 15) }} Local disposal rules</span><span>{{ icon('shield', 15) }} No photo stored</span></div>
-  <span class="hero-watermark" aria-hidden="true">{{ icon('leaf', 190) }}</span>
+<section class="home-workspace" aria-label="Waste sorting assistant">
+  <div class="home-story">
+    <div class="eyebrow"><span class="eyebrow-line"></span> GOOD HABITS. LESS GUESSWORK.</div>
+    <h1>Sort smarter.<br>Waste <span>less.</span></h1>
+    <p class="story-description">An everyday item. A quick photo.<br>A clearer way to do the right thing.</p>
+    <div class="item-stage">
+      <span class="stage-label">EVERY ITEM HAS A NEXT CHAPTER</span>
+      {% include 'sorting_illustration.html' %}
+      <span class="stage-caption">Illustration · Always follow your local disposal rules.</span>
+    </div>
+    <div class="story-features"><span>{{ icon('spark', 17) }} Photo-based guidance</span><span>{{ icon('pin', 17) }} Region-specific rules</span></div>
+  </div>
+
+  <section class="card upload-card" aria-labelledby="upload-heading">
+    <div class="card-header">
+      <div><span class="step-label">A SMALL STEP STARTS HERE</span><h2 id="upload-heading">What are we sorting?</h2></div>
+      <span class="soft-icon">{{ icon('scan', 24) }}</span>
+    </div>
+    <p class="upload-intro">Choose your city and add a photo. We'll help with the rest.</p>
+    {% include 'upload_form.html' %}
+    <div class="upload-privacy">{{ icon('shield', 18) }}<span>Photo sent to the AI provider for analysis.<br>We save the classification, not your photo.</span></div>
+  </section>
 </section>
 
-<div class="workspace-grid">
-  <section class="card upload-card" aria-labelledby="upload-heading">
-    <div class="card-header"><div><span class="step-label">YOUR NEXT SMALL STEP</span><h2 id="upload-heading">Let's sort it out.</h2></div><span class="soft-icon">{{ icon('scan', 22) }}</span></div>
-    {% include 'upload_form.html' %}
-  </section>
-
-  <aside class="guidance-column">
-    <section class="how-card">
-      <span class="section-kicker">FROM PHOTO TO THE RIGHT BIN</span>
-      <h2>Simple for you.<br> Better for the planet.</h2>
-      <ol class="steps-list">
-        <li><span class="step-number">01</span><div><h3>Snap your item</h3><p>One item. A clear photo. That's all we need.</p></div></li>
-        <li><span class="step-number">02</span><div><h3>Get a little clarity</h3><p>We'll identify the material and check your local rules.</p></div></li>
-        <li><span class="step-number">03</span><div><h3>Give it the right next step</h3><p>Find the right bin, plus a practical disposal tip.</p></div></li>
-      </ol>
-      <a class="text-link" href="{{ url_for('dashboard.dashboard') }}">See your recycling overview {{ icon('arrow', 17) }}</a>
-    </section>
-    <div class="privacy-note">{{ icon('shield', 21) }}<p><strong>Your photo, just for this scan.</strong><br>Sent to the AI provider for analysis, not saved in our database.</p></div>
-  </aside>
-</div>
+<section class="journey-strip" aria-label="How it works">
+  <article><span class="journey-number">01</span><div><h2>One item, one photo.</h2><p>A clear view helps identify the material.</p></div></article>
+  <article><span class="journey-number">02</span><div><h2>A little local knowledge.</h2><p>Your city's rules, not a one-size-fits-all answer.</p></div></article>
+  <article><span class="journey-number">03</span><div><h2>The right next step.</h2><p>A bin recommendation and a practical tip.</p></div></article>
+</section>
 
 <section class="category-section">
-  <div class="section-heading"><h2>A place for every possibility.</h2><p>Four categories. Clearer choices.</p></div>
+  <div class="section-heading"><div><span class="section-kicker">UNDERSTAND YOUR EVERYDAY WASTE</span><h2>Different materials. Better decisions.</h2></div><a class="text-link category-dashboard-link" href="{{ url_for('dashboard.dashboard') }}">Your recycling overview {{ icon('arrow', 17) }}</a></div>
   <div class="category-grid">
-    {% for category, heading, detail, symbol in [('recyclable', 'Recyclable', 'A chance to become something new.', 'recycle'), ('compostable', 'Compostable', 'Back to nature, the right way.', 'leaf'), ('landfill', 'Landfill', 'For what cannot be recovered.', 'bin'), ('unknown', 'Needs a closer look', 'When in doubt, check before you sort.', 'scan')] %}
-    <article class="category-tile {{ category }}"><span class="category-symbol">{{ icon(symbol, 22) }}</span><h3>{{ heading }}</h3><p>{{ detail }}</p></article>
+    {% for category, heading, detail, symbol, examples in [('recyclable', 'Recyclable', 'Give useful materials another life.', 'recycle', 'Paper · Packaging · Metal'), ('compostable', 'Compostable', 'Organic matter, back to nature.', 'leaf', 'Food scraps · Garden waste'), ('landfill', 'Landfill', 'For what cannot be recovered.', 'bin', 'Non-recoverable household waste'), ('unknown', 'Needs a closer look', 'A little caution goes a long way.', 'scan', 'Unclear or mixed-material items')] %}
+    <article class="category-tile {{ category }}"><div class="category-tile-top"><span class="category-symbol">{{ icon(symbol, 24) }}</span><span class="tile-index">0{{ loop.index }}</span></div><h3>{{ heading }}</h3><p>{{ detail }}</p><span class="category-examples">{{ examples }}</span></article>
     {% endfor %}
   </div>
+  <p class="category-disclaimer">{{ icon('shield', 15) }} These are broad categories, not universal bin instructions. Your local result is what matters.</p>
 </section>
 {% endblock %}
