@@ -59,69 +59,37 @@ Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworka
 
 ## UML class diagrams
 
-### Subsystem D (Web App & Integration)
+The diagrams follow the team presentation order A, B, C, then D.
+Only classes implemented on this assignment branch are shown.
 
-Subsystem D's implemented classes. Solid triangle arrows show inheritance;
-dashed arrows show dependencies. This HT2 branch demonstrates the OOP web
-structure with styled preview pages; live AI/database integration starts in HT3.
-
-```mermaid
-classDiagram
-    direction LR
-    class AppConfig {
-        +__init__()
-        +upload_limit: int
-        +allowed_types: set
-        +database_host: str
-        +database_name: str
-        +database_user: str
-        +database_password: str
-    }
-    class AppFactory {
-        +__init__(config)
-        +config: AppConfig
-        +create() Flask
-    }
-    class BaseBlueprint {
-        <<abstract>>
-        -_blueprint: Blueprint
-        +__init__(name, url_prefix)
-        +blueprint: Blueprint
-        +register_routes()
-    }
-    class ScanBlueprint {
-        +__init__()
-        +register_routes()
-        +scan()
-    }
-    class DashboardBlueprint {
-        +__init__()
-        +register_routes()
-        +dashboard()
-    }
-    BaseBlueprint <|-- ScanBlueprint
-    BaseBlueprint <|-- DashboardBlueprint
-    AppFactory ..> AppConfig : configures
-    AppFactory ..> ScanBlueprint : registers
-    AppFactory ..> DashboardBlueprint : registers
-```
-
-`create_app()` calls `AppFactory.create()`, which registers the two route
-groups. Configuration lives in an `AppConfig` object; the web layer does not
-yet store scan data. The dashed arrows represent dependencies, not inheritance.
-
-#### D's HT2 pipeline runner
+### Subsystem A (AI Services)
 
 ```mermaid
 classDiagram
-    direction LR
-    class Pipeline {
-        -_source: Source
-        -_processors: list~Processor~
-        +__init__(source, processors)
-        +run() Iterator
-        +__or__(processor) Pipeline
-        +__iter__() Iterator
+    class Classification {
+        +category: str
+        +material: str
+        +confidence: float
+        +needs_confirmation: bool
+        +to_dict() dict
+    }
+    class AIClient {
+        +model: str
+        +connect()
+        +call_vision(prompt, image_bytes, mime_type) str
+        +call_text(prompt) str
+    }
+    class AIService {
+        +client: AIClient
+        +classify_image(image_bytes) Classification
+        +generate_tip(category, region) str
+    }
+    class ScanEvent {
+        +timestamp: datetime
+        +region: str
+        +category: str
+        +material: str
+        +confidence: float
     }
     class Source {
         <<abstract>>
@@ -131,22 +99,13 @@ classDiagram
         <<abstract>>
         +process(events) Iterator
     }
-    Pipeline --> Source
-    Pipeline --> Processor
+    Source <|-- ClassificationEventSource
+    Source <|-- SimulatedScanSource
+    Source ..> ScanEvent : yields
+    Processor ..> ScanEvent : processes
+    AIService o-- AIClient : calls
+    AIService ..> Classification : returns
 ```
-
-Run `python demo_pipeline.py` for an integrated simulated stream. Events pass
-through subsystem C's region filter, tally and recycling-rate tracker before
-subsystem B's database sink saves them.
-**Where D's state lives:** `AppConfig` owns private configuration attributes;
-`AppFactory.config` holds that configuration object; `BaseBlueprint._blueprint`
-holds the Flask route group inherited by each concrete subclass. Properties
-provide controlled access. Flask calls `scan()` or `dashboard()` after matching
-the request URL. The shared templates and local CSS/JavaScript provide the
-green-and-white interface; preview actions are explicitly disabled on HT2.
-`Pipeline.__or__()` returns a new chain, `run()` connects the lazy streams,
-and `__iter__()` allows a for loop. Source and Processor are Timi's contracts,
-not classes owned by subsystem D.
 
 ### Subsystem B (Data & Rules)
 
@@ -270,6 +229,83 @@ classDiagram
     StatsCalculator ..> RecyclingStats : builds
     ChartRenderer ..> RecyclingStats : plots
 ```
+
+### Subsystem D (Web App & Integration)
+
+HT2 retains the HT1 blueprint hierarchy and adds Moye's Pipeline runner.
+The web pages are styled previews; live integration starts in HT3.
+
+```mermaid
+classDiagram
+    direction TB
+    class AppConfig {
+        +__init__()
+        +upload_limit: int
+        +allowed_types: set
+        +database_host: str
+        +database_name: str
+        +database_user: str
+        +database_password: str
+    }
+    class AppFactory {
+        +__init__(config)
+        +config: AppConfig
+        +create() Flask
+    }
+    class BaseBlueprint {
+        <<abstract>>
+        -_blueprint: Blueprint
+        +__init__(name, url_prefix)
+        +blueprint: Blueprint
+        +register_routes()
+    }
+    class ScanBlueprint {
+        +__init__()
+        +register_routes()
+        +scan()
+    }
+    class DashboardBlueprint {
+        +__init__()
+        +register_routes()
+        +dashboard()
+    }
+    BaseBlueprint <|-- ScanBlueprint
+    BaseBlueprint <|-- DashboardBlueprint
+    AppFactory ..> AppConfig : configures
+    AppFactory ..> ScanBlueprint : registers
+    AppFactory ..> DashboardBlueprint : registers
+```
+
+#### D's HT2 pipeline runner
+
+```mermaid
+classDiagram
+    direction LR
+    class Pipeline {
+        -_source: Source
+        -_processors: list~Processor~
+        +__init__(source, processors)
+        +run() Iterator
+        +__or__(processor) Pipeline
+        +__iter__() Iterator
+    }
+    class Source {
+        <<abstract>>
+        +__iter__() Iterator
+    }
+    class Processor {
+        <<abstract>>
+        +process(events) Iterator
+    }
+    Pipeline o-- Source : reads
+    Pipeline o-- Processor : chains
+```
+
+Run `python demo_pipeline.py` for the complete simulated stream through C's
+filter/counters and B's database sink. `Pipeline.__or__()` returns a new chain;
+`run()` connects the lazy generators; `__iter__()` enables for loops. Source and
+Processor are Timi's contracts, not classes owned by D. Configuration lives in
+AppConfig, route groups in BaseBlueprint, and the processor list in Pipeline.
 
 ## Team video
 
