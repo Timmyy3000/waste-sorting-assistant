@@ -1,0 +1,40 @@
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: waste_sorting
+      MYSQL_USER: waste_app
+      MYSQL_PASSWORD: waste_password
+      MYSQL_ROOT_PASSWORD: root_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: db
+      DB_USER: waste_app
+      DB_PASSWORD: waste_password
+      DB_NAME: waste_sorting
+      OPENAI_API_KEY_FILE: /run/secrets/ai_api_key
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://chat.kiconnect.nrw/api/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-mistralai-mistral-small-4}
+    secrets:
+      - ai_api_key
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
+
+secrets:
+  ai_api_key:
+    file: ${OPENAI_API_KEY_FILE:?Set OPENAI_API_KEY_FILE in your local .env}

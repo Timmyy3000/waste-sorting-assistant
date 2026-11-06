@@ -1,0 +1,38 @@
+{% from 'icons.html' import icon %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Sort smarter with photo-based waste classification and local recycling guidance.">
+  <meta name="theme-color" content="#146c43">
+  <title>{% block title %}EcoSort · Waste Sorting Assistant{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/polish.css') }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="nav-shell">
+      <a class="brand" href="{{ url_for('index') }}" aria-label="EcoSort home">
+        <span class="brand-mark">{{ icon('leaf', 27) }}</span>
+        <span>eco<span class="brand-light">sort</span><span class="brand-dot">.</span></span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a class="nav-link {{ 'active' if request.endpoint in ['index', 'scan.scan'] }}" href="{{ url_for('index') }}">{{ icon('scan', 17) }} Sort an item</a>
+        <a class="nav-link {{ 'active' if request.endpoint == 'dashboard.dashboard' }}" href="{{ url_for('dashboard.dashboard') }}">{{ icon('chart', 17) }} Dashboard</a>
+      </nav>
+      <span class="header-note">{{ icon('pin', 16) }} Built around your city</span>
+    </div>
+  </header>
+
+  <main id="main" class="page-shell">{% block content %}{% endblock %}</main>
+
+  <footer class="site-footer">
+    <div><span class="footer-leaf">{{ icon('leaf', 17) }}</span> A little less waste. A better tomorrow.</div>
+    <span>FH Dortmund <span class="footer-separator">/</span> Waste Sorting Assistant</span>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,8 @@
+flask
+pytest
+openai
+pytest-cov
+pymysql
+cryptography
+matplotlib
+python-dotenv

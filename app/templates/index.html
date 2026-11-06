@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="home-workspace" aria-label="Waste sorting assistant">
+  <div class="home-story">
+    <div class="eyebrow"><span class="eyebrow-line"></span> GOOD HABITS. LESS GUESSWORK.</div>
+    <h1>Sort smarter.<br>Waste <span>less.</span></h1>
+    <p class="story-description">An everyday item. A quick photo.<br>A clearer way to do the right thing.</p>
+    <div class="item-stage">
+      <span class="stage-label">EVERY ITEM HAS A NEXT CHAPTER</span>
+      {% include 'sorting_illustration.html' %}
+      <span class="stage-caption">Illustration · Always follow your local disposal rules.</span>
+    </div>
+    <div class="story-features"><span>{{ icon('spark', 17) }} Photo-based guidance</span><span>{{ icon('pin', 17) }} Region-specific rules</span></div>
+  </div>
+
+  <section class="card upload-card" aria-labelledby="upload-heading">
+    <div class="card-header">
+      <div><span class="step-label">A SMALL STEP STARTS HERE</span><h2 id="upload-heading">What are we sorting?</h2></div>
+      <span class="soft-icon">{{ icon('scan', 24) }}</span>
+    </div>
+    <p class="upload-intro">Choose your city and add a photo. We'll help with the rest.</p>
+    {% include 'upload_form.html' %}
+    <div class="upload-privacy">{{ icon('shield', 18) }}<span>Photo sent to the AI provider for analysis.<br>We save the classification, not your photo.</span></div>
+  </section>
+</section>
+
+<section class="journey-strip" aria-label="How it works">
+  <article><span class="journey-number">01</span><div><h2>One item, one photo.</h2><p>A clear view helps identify the material.</p></div></article>
+  <article><span class="journey-number">02</span><div><h2>A little local knowledge.</h2><p>Your city's rules, not a one-size-fits-all answer.</p></div></article>
+  <article><span class="journey-number">03</span><div><h2>The right next step.</h2><p>A bin recommendation and a practical tip.</p></div></article>
+</section>
+
+<section class="category-section">
+  <div class="section-heading"><div><span class="section-kicker">UNDERSTAND YOUR EVERYDAY WASTE</span><h2>Different materials. Better decisions.</h2></div><a class="text-link category-dashboard-link" href="{{ url_for('dashboard.dashboard') }}">Your recycling overview {{ icon('arrow', 17) }}</a></div>
+  <div class="category-grid">
+    {% for category, heading, detail, symbol, examples in [('recyclable', 'Recyclable', 'Give useful materials another life.', 'recycle', 'Paper · Packaging · Metal'), ('compostable', 'Compostable', 'Organic matter, back to nature.', 'leaf', 'Food scraps · Garden waste'), ('landfill', 'Landfill', 'For what cannot be recovered.', 'bin', 'Non-recoverable household waste'), ('unknown', 'Needs a closer look', 'A little caution goes a long way.', 'scan', 'Unclear or mixed-material items')] %}
+    <article class="category-tile {{ category }}"><div class="category-tile-top"><span class="category-symbol">{{ icon(symbol, 24) }}</span><span class="tile-index">0{{ loop.index }}</span></div><h3>{{ heading }}</h3><p>{{ detail }}</p><span class="category-examples">{{ examples }}</span></article>
+    {% endfor %}
+  </div>
+  <p class="category-disclaimer">{{ icon('shield', 15) }} These are broad categories, not universal bin instructions. Your local result is what matters.</p>
+</section>
+{% endblock %}
