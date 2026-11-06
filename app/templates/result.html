@@ -5,16 +5,17 @@
 <div class="result-grid">
   <section class="card result-card">
     <div class="card-header"><h2>Item #{{ result.scan_id }}</h2><span class="badge">{{ result.status|capitalize }}</span></div>
-    <div class="classification-banner {{ result.category }}"><span class="result-symbol">{{ icon('scan', 40) }}</span><div><span class="section-kicker">{{ 'YOUR SAVED CHOICE' if result.status in ['corrected', 'confirmed'] else 'UNVERIFIED SUGGESTION' }}</span><h2>{{ result.stream_label }}</h2></div></div>
-    <dl class="result-details"><div><dt>Item</dt><dd>{{ result.material }}</dd></div><div><dt>City</dt><dd>{{ result.region }}</dd></div><div><dt>Model-reported confidence</dt><dd>{{ ('%.0f'|format(result.confidence * 100)) ~ '%' if result.status == 'suggested' else 'Not verified' }}</dd></div></dl>
+    <div class="classification-banner {{ result.category }}"><span class="result-symbol">{{ icon('scan', 40) }}</span><div><span class="section-kicker">{{ 'YOUR SAVED CHOICE' if result.status in ['corrected', 'confirmed'] else 'UNVERIFIED IMAGE SUGGESTION' }}</span><h2>{{ 'Suggested: ' ~ (result.ai_category|capitalize) if result.status == 'unresolved' and result.ai_category is defined and result.ai_category != 'unknown' else result.stream_label }}</h2></div></div>
+    <dl class="result-details"><div><dt>Item suggestion</dt><dd>{{ result.material }}</dd></div><div><dt>City</dt><dd>{{ result.region }}</dd></div><div><dt>Model-reported confidence</dt><dd>{{ ('%.0f'|format(result.confidence * 100)) ~ '%' if result.status == 'suggested' and result.confidence > 0 else 'Not calibrated / not verified' }}</dd></div></dl>
+    {% if result.status in ['suggested', 'unresolved'] and result.ai_category is defined and result.ai_category != 'unknown' %}<p class="result-note">Image suggestion: {{ result.ai_category }} ({{ result.ai_material }}). This is not a confirmed disposal category.</p>{% endif %}
     {% if result.status == 'corrected' and result.ai_material is defined %}<p class="result-note">Original AI response: {{ result.ai_material }} ({{ result.ai_category }}). Your corrected choice is shown above.</p>{% endif %}
-    <div class="notice notice-warning">{{ icon('alert', 22) }}<div><strong>{{ 'Identification is unavailable.' if result.status == 'unresolved' else 'Verify before disposal.' }}</strong><p>{{ 'No bin recommendation is shown until you confirm the item.' if result.status == 'suggested' else 'A model score does not prove accuracy.' }} Pfand, packaging and local collection rules cannot always be determined from a photo.</p></div></div>
+    <div class="notice notice-warning">{{ icon('alert', 22) }}<div><strong>{{ 'Identification is unavailable.' if result.status == 'unresolved' and (result.ai_category is not defined or result.ai_category == 'unknown') else 'Verify before disposal.' }}</strong><p>{{ 'No bin recommendation is shown until you confirm the item.' if result.status in ['suggested', 'unresolved'] else 'A model score does not prove accuracy.' }} Pfand, packaging and local collection rules cannot always be determined from a photo.</p></div></div>
     <a class="correction-jump" href="#correct-result">Wrong result? Correct it ↓</a>
     <form id="correct-result" class="correction-form" method="post" action="{{ url_for('scan.correct_page', scan_id=result.scan_id) }}">
       <h3>Correct or confirm this result</h3>
       <p>Identify the item yourself. For bottles and cans, check for a Pfand mark before choosing a route.</p>
       <label for="correct-material">Item name</label>
-      <input id="correct-material" name="material" type="text" maxlength="120" required value="{{ '' if result.material in ['unverified item', 'unidentified item'] else result.material }}" placeholder="e.g. empty food tin">
+      <input id="correct-material" name="material" type="text" maxlength="120" required value="{{ '' if result.material in ['unverified item', 'unidentified item', 'uncertain item', 'blank image'] or 'uncertain' in result.material or ' or ' in result.material else result.material }}" placeholder="Identify the actual item, e.g. banana peel">
       <label for="correct-stream">Where should this item go?</label>
       <select id="correct-stream" name="stream" required>
         <option value="" disabled {{ 'selected' if result.stream == 'unknown' }}>Choose after checking the item</option>

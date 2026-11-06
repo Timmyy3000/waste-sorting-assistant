@@ -20,6 +20,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.delenv("DB_HOST", raising=False)
     monkeypatch.setenv("DB_PATH", str(tmp_path / "test.db"))
     monkeypatch.setenv("OPENAI_API_KEY", "test-server-secret-not-for-browsers")
+    monkeypatch.setenv("LOCAL_VISION_MODEL_DIR", "")
     app = create_app()
     app.config["TESTING"] = True
     return app.test_client()
@@ -37,7 +38,7 @@ def test_home_page_loads(client):
     assert b"Bottles and Pfand" in response.data
     assert b"Illustration of a Pfand bottle return machine" in response.data
     assert b"Altglas" in response.data
-    assert response.headers["X-App-Version"] == "2026-11-06-sorting-v2"
+    assert response.headers["X-App-Version"] == "2026-11-06-vision-v3"
 
 
 def test_text_upload_shows_friendly_error(client):
@@ -171,7 +172,7 @@ def test_unverified_provider_never_guesses_a_bin(client, monkeypatch, path):
     assert response.status_code == 200
     if path == "/scan":
         assert b"Identification is unavailable" in response.data
-        assert b"Not verified" in response.data
+        assert b"Not calibrated / not verified" in response.data
         assert b"<h2>Restm" not in response.data
     else:
         result = response.get_json()
@@ -323,6 +324,45 @@ def test_ai_suggestion_shows_no_bin_until_confirmed(client, monkeypatch):
     assert confirmed.status_code == 200
     assert confirmed.get_json()["status"] == "confirmed"
     assert confirmed.get_json()["bin"] == "Biotonne"
+
+
+def test_local_image_match_suggests_category_without_asking_ki(client, monkeypatch, tmp_path):
+    from app.ai_services import AIClient, Classification
+    from app import local_vision
+
+    monkeypatch.setenv("LOCAL_VISION_MODEL_DIR", str(tmp_path / "model"))
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://chat.kiconnect.nrw/api/v1")
+
+    class FakeLocal:
+        def classify(self, image_bytes):
+            assert image_bytes.startswith(b"\xff\xd8\xff")
+            return Classification("recyclable", "cardboard", 0.0)
+
+    monkeypatch.setattr(local_vision, "get_local_vision", lambda path: FakeLocal())
+    monkeypatch.setattr(AIClient, "call_vision", lambda *args: pytest.fail("Do not call KI:connect"))
+    response = client.post("/api/classify", data={
+        "region": "Dortmund", "photo": (BytesIO(photo()), "cardboard.png"),
+    })
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result["ai_category"] == "recyclable"
+    assert result["stream"] == "paper"
+    assert result["status"] == "suggested"
+    assert result["bin"] == "Check the city's Abfall-ABC"
+    assert b"Not calibrated / not verified" in client.get(f"/scan/{result['scan_id']}").data
+
+
+def test_missing_local_model_does_not_fall_back_to_unverified_ki(client, monkeypatch, tmp_path):
+    from app.ai_services import AIClient
+
+    monkeypatch.setenv("LOCAL_VISION_MODEL_DIR", str(tmp_path / "not-installed"))
+    monkeypatch.setattr(AIClient, "call_vision", lambda *args: pytest.fail("Do not call KI:connect"))
+    response = client.post("/api/classify", data={
+        "region": "Dortmund", "photo": (BytesIO(photo()), "item.png"),
+    })
+    assert response.status_code == 200
+    assert response.get_json()["category"] == "unknown"
+    assert response.get_json()["material"] == "local vision unavailable"
 
 
 def test_existing_sqlite_scans_survive_additive_schema(tmp_path, monkeypatch):

@@ -1,8 +1,8 @@
 ﻿# AI-Powered Waste Sorting & Recycling Assistant
 
-Waste-sorting prototype with region-specific disposal rules and recycling-rate
-analytics. Photo classification requires a separately verified vision provider;
-the included KI:connect configuration currently returns unverified results.
+Waste-sorting prototype with region-specific disposal rules and sorting
+analytics. An optional offline image matcher suggests candidate items, but
+requires human confirmation before showing a disposal bin.
 
 Capstone project, Compact Programming Course (Python), FH Dortmund, WS 2026/27.
 
@@ -110,14 +110,33 @@ requires authentication, HTTPS, rate limits and privacy review.
 
 Dashboard figures are **counts of saved choices**, not measured real-world
 recycling or validated AI accuracy. User corrections do not retrain the model.
-Automated vision remains off for the included unverified KI:connect endpoint.
+KI:connect's photo output remains untrusted: live checks mislabeled glass as a
+banana peel. The optional **offline vision matcher** below can supply candidate
+items without sending photos to that provider.
+
+Install [Xenova's quantized CLIP model](https://huggingface.co/Xenova/clip-vit-base-patch32)
+(MIT-licensed, ~155 MB) outside Git with
+`python scripts/install_local_vision.py --directory /absolute/path/to/model`.
+Set `LOCAL_VISION_MODEL_DIR` to that path in the ignored `.env`, then restart the
+server. The local model compares visual features with a limited vocabulary. It
+can suggest broad categories for some photos, but is **not trained on the
+TrashPanda dataset**, its similarity is **not a probability**, and ambiguous
+whole bananas vs peels, bottle material or Pfand still require user review.
+The result shows the suggested item/category but **withholds a disposal bin
+until the user confirms or corrects** the result. Without installed weights,
+KI:connect remains disabled and the app safely offers manual sorting instead.
+A local smoke check on isolated SQLite suggested paper for cardboard and a broad
+compostable category for a banana peel, but could not resolve some other items
+reliably. This is **not an accuracy benchmark**. Similarity is never shown as a
+percentage or treated as confidence. All unconfirmed results withhold bin advice.
 
 ### Image formats and model evaluation
 
 The upload form accepts JPG, PNG, WebP, still GIF, BMP, TIFF, AVIF and HEIC/HEIF.
 Pillow (and `pillow-heif` for HEIC) checks the **actual bytes**, rejects corrupt,
-animated or excessively large images, corrects camera orientation, and sends a
-resized JPEG to a configured vision provider. SVG and other active formats are
+animated or excessively large images, corrects camera orientation, and prepares
+a resized JPEG for the configured recogniser. The offline matcher keeps photos
+on this server. SVG and other active formats are
 not accepted. The 5 MB input limit and 20-megapixel pixel limit still apply.
 The homepage illustrates each collection stream using original SVG drawings,
 not photographs of local municipal containers; the city guide remains the
@@ -128,8 +147,8 @@ old server process, and versioned asset URLs prevent stale browser CSS/JS.
 German waste classes, but its dataset card does not declare a licence. Do not
 copy, redistribute or train on its images until permission is verified. An
 optional local-only evaluation script is provided for appropriately obtained
-files: `python scripts/evaluate_trashpanda.py PATH_TO_TRASHPANDA`. It refuses the
-known-unreliable KI:connect endpoint and reports repeated predictions without
+files: `python scripts/evaluate_trashpanda.py PATH_TO_TRASHPANDA`. It uses the
+offline matcher when installed, refuses unverified KI:connect vision and reports repeated predictions without
 modifying the application database. A matching broad class is not proof of
 correct disposal (notably for Pfand bottles and mixed/special waste).
 

@@ -47,6 +47,8 @@ class ScanWorkflow:
         except (ValueError, TypeError, KeyError):
             raise AIUnavailableError("We could not interpret the AI response. Please try another photo.") from None
         stream = suggestion(result["category"], result["material"])
+        result["ai_category"] = result["category"]
+        result["ai_material"] = result["material"]
         # A model-only suggestion is not enough to recommend a disposal bin.
         guide = guidance(region, "unknown")
         with create_database() as database:

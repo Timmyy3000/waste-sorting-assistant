@@ -205,6 +205,21 @@ class AIService:
         Raises an AIServiceError subclass when something goes wrong; D's Flask error
         handler turns it into a clean message using `http_status`.
         """
+        local_dir = os.getenv("LOCAL_VISION_MODEL_DIR", "").strip()
+        if local_dir:
+            self._check_image(image_bytes)
+            try:
+                from app.local_vision import get_local_vision
+
+                result = get_local_vision(local_dir).classify(image_bytes)
+            except Exception as error:
+                logger.warning("Local image recognition unavailable (%s)", type(error).__name__)
+                result = Classification("unknown", "local vision unavailable", 0.0)
+            answer = result.to_dict()
+            answer["region"] = region
+            answer["tip"] = "Local image recognition is a suggestion only. Identify the item and confirm it against your city's rules."
+            return answer
+
         # Live KI:connect tests returned confident but unrelated object names for
         # real photos. Until a vision-capable model is verified, never turn those
         # guesses into disposal advice. Other configured providers retain A's

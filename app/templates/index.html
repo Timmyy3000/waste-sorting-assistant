@@ -18,15 +18,15 @@
       <div><span class="step-label">A SMALL STEP STARTS HERE</span><h2 id="upload-heading">What are we sorting?</h2></div>
       <span class="soft-icon">{{ icon('scan', 24) }}</span>
     </div>
-    <p class="upload-intro">Choose your city and add a photo. Photo identification is currently unverified with KI:connect; check local rules before choosing a bin.</p>
+    <p class="upload-intro">Choose your city and add a photo. {% if config.LOCAL_VISION_ENABLED %}The offline image matcher can suggest an item; you confirm it before receiving bin guidance.{% else %}Photo identification is unavailable with the current KI:connect provider; you can sort manually below.{% endif %}</p>
     {% include 'upload_form.html' %}
-    <div class="upload-privacy">{{ icon('shield', 18) }}<span>On KI:connect, the photo is not sent to the unverified model.<br>We save the unverified result, not your photo.</span></div>
+    <div class="upload-privacy">{{ icon('shield', 18) }}<span>{% if config.LOCAL_VISION_ENABLED %}Photo analysed locally on this server, not sent to KI:connect.{% else %}Photo not sent to the unverified KI:connect model.{% endif %}<br>We save the result, not your photo.</span></div>
   </section>
 </section>
 
 <section class="card stream-section" aria-labelledby="manual-heading">
   <h2 id="manual-heading">Sort without a photo</h2>
-  <p>Our sample image provider cannot reliably identify items. If you know what you have, describe it and choose a route yourself. Check the city guide before disposal.</p>
+  <p>If the image match is uncertain, describe the item and choose a route yourself. Check the city guide before disposal.</p>
   <form class="manual-form" action="{{ url_for('scan.manual_page') }}" method="post">
     <label for="manual-region">City<select id="manual-region" name="region" required><option value="" disabled selected>Choose a city</option>{% for region in regions %}<option value="{{ region }}">{{ region }}</option>{% endfor %}</select></label>
     <label for="manual-item">Item<input id="manual-item" name="material" type="text" maxlength="120" placeholder="e.g. empty food tin" required></label>

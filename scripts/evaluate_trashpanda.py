@@ -39,11 +39,12 @@ def main() -> None:
     if args.per_class < 1 or args.repeats < 1:
         parser.error("per-class and repeats must be positive")
     AppConfig().configure_ai()
-    if urlparse(os.getenv("OPENAI_BASE_URL", "")).hostname == "chat.kiconnect.nrw":
+    local = bool(os.getenv("LOCAL_VISION_MODEL_DIR"))
+    if not local and urlparse(os.getenv("OPENAI_BASE_URL", "")).hostname == "chat.kiconnect.nrw":
         parser.error("The configured KI:connect endpoint failed vision checks; no images were sent")
     service = AIService()
     rng = random.Random(42)
-    report = {"source": str(args.dataset), "model": service.client.model,
+    report = {"source": str(args.dataset), "model": "local CLIP" if local else service.client.model,
               "note": "Coarse dataset agreement only, not item identification or German disposal accuracy.",
               "classes": {}}
     for name, expected in EXPECTED.items():
@@ -54,7 +55,7 @@ def main() -> None:
         for path in rng.sample(candidates, min(args.per_class, len(candidates))):
             try:
                 image = normalise(path.read_bytes())
-                predictions = [service.classify_image(image).to_dict() for _ in range(args.repeats)]
+                predictions = [service.classify_upload(image, "Dortmund") for _ in range(args.repeats)]
                 records.append({"file": path.name, "predictions": predictions,
                                 "consistent": len({(p["category"], p["material"]) for p in predictions}) == 1})
             except Exception as error:
