@@ -24,3 +24,26 @@ CREATE TABLE IF NOT EXISTS rules (
     instructions  TEXT         NOT NULL,
     PRIMARY KEY (region, category)
 );
+
+CREATE TABLE IF NOT EXISTS scan_reviews (
+    scan_id INT NOT NULL PRIMARY KEY,
+    owner_hash VARCHAR(64) NOT NULL,
+    stream VARCHAR(24) NOT NULL,
+    status VARCHAR(24) NOT NULL,
+    ai_category VARCHAR(20) NOT NULL,
+    ai_material VARCHAR(200) NOT NULL,
+    ai_confidence DOUBLE NOT NULL,
+    version INT NOT NULL DEFAULT 0,
+    FOREIGN KEY (scan_id) REFERENCES scans(id)
+);
+
+CREATE TABLE IF NOT EXISTS scan_corrections (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    scan_id INT NOT NULL,
+    changed_at VARCHAR(32) NOT NULL,
+    old_stream VARCHAR(24) NOT NULL,
+    new_stream VARCHAR(24) NOT NULL,
+    old_material VARCHAR(200) NOT NULL,
+    new_material VARCHAR(200) NOT NULL,
+    FOREIGN KEY (scan_id) REFERENCES scans(id)
+);

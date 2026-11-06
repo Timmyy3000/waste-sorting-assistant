@@ -24,6 +24,18 @@
   </section>
 </section>
 
+<section class="card stream-section" aria-labelledby="manual-heading">
+  <h2 id="manual-heading">Sort without a photo</h2>
+  <p>Our sample image provider cannot reliably identify items. If you know what you have, describe it and choose a route yourself. Check the city guide before disposal.</p>
+  <form class="manual-form" action="{{ url_for('scan.manual_page') }}" method="post">
+    <label for="manual-region">City<select id="manual-region" name="region" required><option value="" disabled selected>Choose a city</option>{% for region in regions %}<option value="{{ region }}">{{ region }}</option>{% endfor %}</select></label>
+    <label for="manual-item">Item<input id="manual-item" name="material" type="text" maxlength="120" placeholder="e.g. empty food tin" required></label>
+    <label for="manual-stream">Disposal route<select id="manual-stream" name="stream" required><option value="" disabled selected>Choose after checking the item</option>{% for key, label in streams.items() if key != 'unknown' %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="button button-primary">See local guidance</button>
+  </form>
+</section>
+
 <section class="journey-strip" aria-label="How it works">
   <article><span class="journey-number">01</span><div><h2>One item, one photo.</h2><p>A clear view helps identify the material.</p></div></article>
   <article><span class="journey-number">02</span><div><h2>A little local knowledge.</h2><p>Your city's rules, not a one-size-fits-all answer.</p></div></article>
@@ -33,10 +45,10 @@
 <section class="category-section">
   <div class="section-heading"><div><span class="section-kicker">UNDERSTAND YOUR EVERYDAY WASTE</span><h2>Different materials. Better decisions.</h2></div><a class="text-link category-dashboard-link" href="{{ url_for('dashboard.dashboard') }}">Your recycling overview {{ icon('arrow', 17) }}</a></div>
   <div class="category-grid">
-    {% for category, heading, detail, symbol, examples in [('recyclable', 'Recyclable', 'Give useful materials another life.', 'recycle', 'Paper · Packaging · Metal'), ('compostable', 'Compostable', 'Organic matter, back to nature.', 'leaf', 'Food scraps · Garden waste'), ('landfill', 'Landfill', 'For what cannot be recovered.', 'bin', 'Non-recoverable household waste'), ('unknown', 'Needs a closer look', 'A little caution goes a long way.', 'scan', 'Unclear or mixed-material items')] %}
+    {% for category, heading, detail, symbol, examples in [('compostable', 'Bioabfall', 'Fruit and vegetable scraps, coffee grounds.', 'leaf', 'Food · No plastic bags'), ('landfill', 'Restmüll', 'Non-recoverable household waste.', 'bin', 'Used tissues · Nappies'), ('recyclable', 'Paper and cardboard', 'Clean, flattened paper and Karton.', 'recycle', 'Not drink cartons'), ('recyclable', 'Packaging', 'Empty plastic, metal and composite packaging.', 'recycle', 'City-specific collection'), ('recyclable', 'Bottles and Pfand', 'Check the deposit mark first: return deposit bottles.', 'recycle', 'Glass without Pfand → Altglas'), ('unknown', 'Separate collection', 'Electronics, batteries, chemicals and cars.', 'scan', 'Never put batteries in Restmüll')] %}
     <article class="category-tile {{ category }}"><div class="category-tile-top"><span class="category-symbol">{{ icon(symbol, 24) }}</span><span class="tile-index">0{{ loop.index }}</span></div><h3>{{ heading }}</h3><p>{{ detail }}</p><span class="category-examples">{{ examples }}</span></article>
     {% endfor %}
   </div>
-  <p class="category-disclaimer">{{ icon('shield', 15) }} These are broad categories, not universal bin instructions. Your local result is what matters.</p>
+  <p class="category-disclaimer">{{ icon('shield', 15) }} For cars and vehicle parts use specialist collection; for food and packaging check your city's official Abfall-ABC. Photos cannot establish Pfand or every local exception.</p>
 </section>
 {% endblock %}

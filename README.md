@@ -80,6 +80,35 @@ can use the normal classification workflow. Even then, model confidence is not
 measured accuracy and local rules are category-level, not item-specific. Only
 classification records, not photo files, are stored here.
 
+### German disposal guidance and corrections (final `main`)
+
+Results use conservative disposal routes: **Bioabfall, Restmüll, paper/cardboard,
+lightweight packaging, Altglas, Pfand returns, electronics/batteries, hazardous
+waste, bulky waste and end-of-life vehicles**. A bottle cannot be assigned a bin
+from material alone: check for Pfand first. Food scraps generally belong in the
+Biotonne, but local rules for meat/cooked food vary. Munich's packaging collection
+is changing in 2026–27, so users must verify their address against AWM. Each
+result links to the official EDG, BSR or AWM waste guide. The app is not a
+complete Abfall-ABC and cannot guarantee correct disposal for every item.
+
+Use **Sort without a photo** when no reliable vision service is available. You
+choose the item and disposal route, then the server shows the local guidance.
+After a scan, use **Correct or confirm this result** to identify the item and
+choose the appropriate route. The database preserves the initial model response
+and an append-only correction log, while the dashboard and JSON statistics use
+the latest saved choice. Recent history is visible only to the browser that
+created it. Older scans remain in aggregate statistics but are not editable.
+Cookies and a CSRF token protect corrections, but anonymous browser ownership
+is not an account system: clearing cookies loses access to previous edits. Set
+`FLASK_SECRET_KEY` to a persistent, unpredictable server secret for deployment
+or access to browser-owned scans will be lost after a restart. Do not share a
+single browser session among multiple people. Public deployment additionally
+requires authentication, HTTPS, rate limits and privacy review.
+
+Dashboard figures are **counts of saved choices**, not measured real-world
+recycling or validated AI accuracy. User corrections do not retrain the model.
+Automated vision remains off for the included unverified KI:connect endpoint.
+
 ### Docker with MySQL
 
 With the same local `.env` and external key file, run:
@@ -386,10 +415,11 @@ separately and do not make automated tests depend on the network or a real key.
 Run `pytest --cov=app --cov-branch` for statement and branch coverage. Coverage
 shows exercised code, not proof that every behaviour is correct.
 
-Latest local verification on HT4: **35 tests passed**, with **78% combined
-statement/branch coverage** using the command above. The KI:connect live smoke
-test also passed on an isolated SQLite database with a synthetic bottle image;
-it did not add artificial scans to the normal application database.
+The preserved HT4 assignment branch previously passed 35 tests. Final `main`
+adds city-specific guidance, correction and ownership tests. Earlier live tests
+revealed severe KI:connect misidentification, so sending images to that endpoint
+is disabled. Live samples use an isolated SQLite database and do not alter the
+normal dashboard. Passing route tests does not prove photo recognition accuracy.
 
 ## Team video
 

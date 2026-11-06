@@ -64,11 +64,11 @@ def test_successful_upload_is_saved_and_shown(client, monkeypatch):
     })
     assert response.status_code == 200
     assert b"plastic bottle" in response.data
-    assert b"Gelbe Tonne" in response.data
+    assert b"Check the city" in response.data
     payload = client.get("/api/stats").get_json()
     assert payload["total_scans"] == 1
-    assert payload["category_counts"]["recyclable"] == 1
-    assert payload["recycling_rate"] == 1.0
+    assert payload["category_counts"]["unknown"] == 1
+    assert payload["recycling_rate"] == 0.0
 
 
 @pytest.mark.parametrize("path", ["/scan", "/api/classify"])
@@ -105,7 +105,7 @@ def test_api_upload_uses_the_same_saved_workflow(client, monkeypatch):
     })
     assert response.status_code == 200
     assert response.get_json()["scan_id"] > 0
-    assert response.get_json()["bin"] == "Wertstoffhof"
+    assert response.get_json()["bin"] == "Check the city's Abfall-ABC"
     assert "test-server-secret-not-for-browsers" not in response.get_data(as_text=True)
 
 
@@ -159,16 +159,16 @@ def test_unverified_provider_never_guesses_a_bin(client, monkeypatch, path):
     })
     assert response.status_code == 200
     if path == "/scan":
-        assert b"Do not choose a bin based on this result" in response.data
-        assert b"Not available" in response.data
-        assert b"Restm" not in response.data
+        assert b"Identification is unavailable" in response.data
+        assert b"Not verified" in response.data
+        assert b"<h2>Restm" not in response.data
     else:
         result = response.get_json()
         assert result["category"] == "unknown"
         assert result["material"] == "unverified item"
         assert result["confidence"] == 0
         assert result["needs_confirmation"] is True
-        assert result["bin"] == "Wertstoffhof"
+        assert result["bin"] == "Check the city's Abfall-ABC"
     assert client.get("/api/stats").get_json()["category_counts"]["unknown"] == 1
 
 
@@ -184,7 +184,133 @@ def test_blank_ai_material_becomes_unknown_instead_of_database_error(client, mon
     assert response.status_code == 200
     assert response.get_json()["category"] == "unknown"
     assert response.get_json()["material"] == "unidentified item"
-    assert response.get_json()["bin"] == "Wertstoffhof"
+    assert response.get_json()["bin"] == "Check the city's Abfall-ABC"
+
+
+def test_german_routes_and_ambiguous_bottles():
+    from app.disposal import guidance, suggestion
+
+    assert guidance("Berlin", "bio").bin == "Biotonne"
+    assert "Papiertonne" in guidance("Dortmund", "paper").bin
+    assert "Wertstofftonne" in guidance("Berlin", "packaging").bin
+    assert "2026" in guidance("Munich", "packaging").instructions
+    assert "Altglas" in guidance("Munich", "glass").bin
+    assert "Pfand" in guidance("Berlin", "deposit").bin
+    assert "vehicle" in guidance("Dortmund", "vehicle").bin
+    assert suggestion("recyclable", "plastic bottle") == "unknown"
+    assert suggestion("recyclable", "battery") == "unknown"
+    assert suggestion("compostable", "banana peel") == "bio"
+
+
+def test_correction_requires_owner_and_csrf_updates_stats_and_audit(client, monkeypatch):
+    from app.ai_services import AIService
+    from app.db import create_database
+
+    monkeypatch.setattr(AIService, "classify_upload", lambda self, image, region: {
+        "category": "unknown", "material": "unverified item", "confidence": 0,
+        "needs_confirmation": True, "region": region, "tip": "Check city guidance.",
+    })
+    upload = client.post("/api/classify", data={
+        "region": "Berlin", "photo": (BytesIO(b"\x89PNG\r\n\x1a\nimage"), "item.png"),
+    }).get_json()
+    scan_id = upload["scan_id"]
+    endpoint = f"/api/scans/{scan_id}/correct"
+    body = {"stream": "paper", "material": "cardboard", "version": 0}
+    other = client.application.test_client()
+    assert other.post(endpoint, json=body, headers={"X-CSRF-Token": upload["csrf_token"]}).status_code == 400
+    assert client.post(endpoint, json=body).status_code == 400
+    response = client.post(endpoint, json=body, headers={"X-CSRF-Token": upload["csrf_token"]})
+    assert response.status_code == 200
+    assert response.get_json()["status"] == "corrected"
+    assert response.get_json()["bin"] == "Papiertonne / Blaue Tonne"
+    assert client.get("/api/stats").get_json()["stream_counts"]["paper"] == 1
+    assert client.get("/api/stats").get_json()["corrected_scans"] == 1
+    assert b"Review / correct" in client.get("/dashboard").data
+    assert b"Review / correct" not in other.get("/dashboard").data
+    assert client.post(endpoint, json=body, headers={"X-CSRF-Token": upload["csrf_token"]}).status_code == 400
+    with create_database() as database:
+        changes = database.query("SELECT * FROM scan_corrections WHERE scan_id = ?", (scan_id,))
+    assert len(changes) == 1
+    assert changes[0]["old_stream"] == "unknown"
+    assert changes[0]["new_stream"] == "paper"
+
+
+def test_form_correction_and_invalid_stream(client, monkeypatch):
+    from app.ai_services import AIService
+
+    monkeypatch.setattr(AIService, "classify_upload", lambda self, image, region: {
+        "category": "unknown", "material": "unverified item", "confidence": 0, "region": region,
+    })
+    client.post("/scan", data={
+        "region": "Dortmund", "photo": (BytesIO(b"\x89PNG\r\n\x1a\nimage"), "item.png"),
+    })
+    with client.session_transaction() as sess:
+        token = sess["scan_csrf"]
+    data = {"material": "empty tin", "stream": "invalid", "version": 0, "csrf_token": token}
+    assert client.post("/scan/1/correct", data=data).status_code == 400
+    data["stream"] = "packaging"
+    response = client.post("/scan/1/correct", data=data)
+    assert response.status_code == 303
+    assert b"Wertstofftonne" in client.get(response.headers["Location"]).data
+
+
+def test_manual_sort_works_without_vision_or_photo(client, monkeypatch):
+    from app.ai_services import AIService
+
+    monkeypatch.setattr(AIService, "classify_upload", lambda *args: pytest.fail("Manual sort must not call AI"))
+    assert b"Sort without a photo" in client.get("/").data
+    with client.session_transaction() as sess:
+        token = sess["scan_csrf"]
+    assert client.post("/scan/manual", data={
+        "region": "Berlin", "stream": "bio", "material": "banana peel",
+    }).status_code == 400
+    response = client.post("/scan/manual", data={
+        "region": "Berlin", "stream": "bio", "material": "banana peel", "csrf_token": token,
+    })
+    assert response.status_code == 303
+    result = client.get(response.headers["Location"])
+    assert b"Biotonne" in result.data
+    assert b"Confirmed" in result.data
+    assert client.get("/api/stats").get_json()["stream_counts"]["bio"] == 1
+
+
+def test_manual_special_collection_is_not_counted_as_unresolved(client):
+    client.get("/")
+    with client.session_transaction() as sess:
+        token = sess["scan_csrf"]
+    response = client.post("/scan/manual", data={
+        "region": "Dortmund", "stream": "vehicle", "material": "old car",
+        "csrf_token": token,
+    })
+    assert response.status_code == 303
+    assert b"Authorised vehicle dismantler" in client.get(response.headers["Location"]).data
+    stats = client.get("/api/stats").get_json()
+    assert stats["stream_counts"]["vehicle"] == 1
+    assert stats["unresolved_scans"] == 0
+
+
+def test_existing_sqlite_scans_survive_additive_schema(tmp_path, monkeypatch):
+    import sqlite3
+    from app.db import SCHEMA_PATH
+
+    path = tmp_path / "previous-version.db"
+    connection = sqlite3.connect(path)
+    original = SCHEMA_PATH.read_text(encoding="utf-8").split("-- Additive tables")[0]
+    connection.executescript(original)
+    connection.execute(
+        "INSERT INTO scans (timestamp, region, category, material, confidence) VALUES (?, ?, ?, ?, ?)",
+        ("2026-11-06T10:00:00", "Berlin", "recyclable", "old paper", 0.8),
+    )
+    connection.commit()
+    connection.close()
+    monkeypatch.setenv("DB_PATH", str(path))
+    monkeypatch.delenv("DB_HOST", raising=False)
+    app = create_app()
+    app.config["TESTING"] = True
+    response = app.test_client().get("/api/stats")
+    assert response.status_code == 200
+    assert response.get_json()["total_scans"] == 1
+    assert response.get_json()["stream_counts"]["paper"] == 0  # Do not invent old detail.
 
 
 def test_upload_limit_and_404_are_friendly(client):

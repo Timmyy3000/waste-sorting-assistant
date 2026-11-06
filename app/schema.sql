@@ -25,3 +25,27 @@ CREATE TABLE IF NOT EXISTS rules (
     instructions  TEXT NOT NULL,               -- short how-to for the user
     PRIMARY KEY (region, category)
 );
+
+-- Additive tables preserve existing scans and category-based rules.
+CREATE TABLE IF NOT EXISTS scan_reviews (
+    scan_id INTEGER PRIMARY KEY,
+    owner_hash TEXT NOT NULL,
+    stream TEXT NOT NULL,
+    status TEXT NOT NULL,
+    ai_category TEXT NOT NULL,
+    ai_material TEXT NOT NULL,
+    ai_confidence REAL NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (scan_id) REFERENCES scans(id)
+);
+
+CREATE TABLE IF NOT EXISTS scan_corrections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scan_id INTEGER NOT NULL,
+    changed_at TEXT NOT NULL,
+    old_stream TEXT NOT NULL,
+    new_stream TEXT NOT NULL,
+    old_material TEXT NOT NULL,
+    new_material TEXT NOT NULL,
+    FOREIGN KEY (scan_id) REFERENCES scans(id)
+);

@@ -26,6 +26,7 @@ services:
       OPENAI_API_KEY_FILE: /run/secrets/ai_api_key
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://chat.kiconnect.nrw/api/v1}
       OPENAI_MODEL: ${OPENAI_MODEL:-mistralai-mistral-small-4}
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:?Set a long random FLASK_SECRET_KEY in your local .env}
     secrets:
       - ai_api_key
     depends_on:

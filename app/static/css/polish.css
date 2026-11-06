@@ -184,3 +184,27 @@ body { font-size: 15px; }
 @media (prefers-reduced-motion: reduce) {
   .illustrated-bottle, .home-workspace { animation: none; }
 }
+
+.correction-form { display: grid; gap: 11px; margin-top: 25px; padding-top: 23px; border-top: 1px solid var(--border); }
+.correction-form h3 { margin: 0; font-size: 19px; }
+.correction-form p { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+.correction-form label { font-weight: 650; font-size: 12px; }
+.correction-form input, .correction-form select { width: 100%; min-height: 44px; padding: 9px 12px; border: 1px solid #b7cdbb; border-radius: 9px; background: #fff; color: var(--ink); }
+.correction-form .button { justify-self: start; margin-top: 8px; }
+.stream-section { margin: 22px 0; padding: 24px; }
+.stream-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.stream-entry { padding: 13px; border: 1px solid var(--border); border-radius: 12px; background: #f8faf7; }
+.stream-entry strong { display: block; font-size: 13px; }
+.stream-entry span { color: var(--muted); font-size: 12px; }
+.history-table { width: 100%; border-collapse: collapse; }
+.history-table th, .history-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 12px; }
+.history-table td a { color: var(--green); font-weight: 700; text-decoration: underline; }
+.history-wrap { overflow-x: auto; }
+.manual-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 12px; align-items: end; }
+.manual-form label { display: grid; gap: 6px; font-size: 12px; font-weight: 650; }
+.manual-form input, .manual-form select { width: 100%; min-height: 44px; padding: 9px; border: 1px solid #b7cdbb; border-radius: 9px; background: #fff; color: var(--ink); }
+.manual-form .button { min-height: 44px; }
+@media (max-width: 950px) { .manual-form { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 570px) { .manual-form { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .stream-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 390px) { .stream-grid { grid-template-columns: 1fr; } }

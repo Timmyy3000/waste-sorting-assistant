@@ -1,3 +1,6 @@
+import os
+import secrets
+
 from flask import Flask, jsonify, render_template, request
 
 from app.ai_services import AIServiceError
@@ -9,6 +12,8 @@ from app.routes.base import BaseBlueprint
 from app.routes.dashboard import DashboardBlueprint
 from app.routes.errors import UploadError, WebAppError
 from app.routes.scan import ScanBlueprint, ScanWorkflow
+from app.scan_reviews import csrf_token
+from app.disposal import STREAMS
 
 
 class AppFactory:
@@ -20,6 +25,9 @@ class AppFactory:
     def create(self) -> Flask:
         """Create the app and register its route groups."""
         app = Flask(__name__)
+        # Set SECRET_KEY in deployment so browser ownership survives restarts.
+        app.secret_key = os.getenv("FLASK_SECRET_KEY") or secrets.token_hex(32)
+        app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
         self.config.configure_ai()
         app.config["WEB_INTEGRATED"] = True
         app.config["MAX_CONTENT_LENGTH"] = self.config.upload_limit
@@ -31,7 +39,8 @@ class AppFactory:
 
         @app.route("/")
         def index() -> str:
-            return render_template("index.html", regions=ScanWorkflow().get_regions())
+            return render_template("index.html", regions=ScanWorkflow().get_regions(),
+                                   streams=STREAMS, csrf_token=csrf_token())
 
         with create_database() as database:
             RuleRepository(database).load_from_csv()

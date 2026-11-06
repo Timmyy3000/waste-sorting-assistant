@@ -1,16 +1,30 @@
 {% extends 'base.html' %}
-{% block title %}Your sorting guide · EcoSort{% endblock %}
+{% block title %}Sorting guidance · EcoSort{% endblock %}
 {% block content %}
-<section class="page-intro"><a class="back-link" href="{{ url_for('index') }}">← Back to sorting</a><div class="eyebrow"><span class="eyebrow-line"></span> A CLEARER NEXT STEP</div><h1>Your sorting <span>guide.</span></h1><p>Here's what we found and the local guidance for {{ result.region }}.</p></section>
+<section class="page-intro"><a class="back-link" href="{{ url_for('index') }}">← Sort another item</a><div class="eyebrow">A GUIDE, NOT A GUARANTEE</div><h1>Review your <span>result.</span></h1><p>Confirm the item and check {{ result.region }}'s official guidance before disposal.</p></section>
 <div class="result-grid">
   <section class="card result-card">
-    <div class="card-header"><h2>Classification result</h2><span class="badge badge-green">{{ icon('check', 14) }} Scan saved</span></div>
-    <div class="classification-banner {{ result.category }}"><span class="result-symbol">{{ icon('leaf' if result.category == 'compostable' else 'recycle' if result.category == 'recyclable' else 'bin' if result.category == 'landfill' else 'scan', 40) }}</span><div><span class="section-kicker">{{ 'NOT VERIFIED' if result.category == 'unknown' else 'AI SUGGESTION' }}</span><h2>{{ 'Needs identification' if result.category == 'unknown' else result.category|capitalize }}</h2></div></div>
-    <dl class="result-details"><div><dt>Material</dt><dd>{{ result.material }}</dd></div><div><dt>Location</dt><dd>{{ icon('pin', 16) }} {{ result.region }}</dd></div><div><dt>Model-reported confidence</dt><dd>{{ 'Not available' if result.category == 'unknown' else ('%.0f'|format(result.confidence * 100)) ~ '%' }}</dd></div></dl>
-    {% if result.category != 'unknown' %}<div class="confidence-track" role="meter" aria-label="Model-reported confidence, not verified accuracy" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ (result.confidence * 100)|round|int }}"><span style="width: {{ (result.confidence * 100)|round|int }}%"></span></div>{% endif %}
-    {% if result.needs_confirmation or result.category == 'unknown' %}<div class="notice notice-warning">{{ icon('alert', 22) }}<div><strong>Do not choose a bin based on this result.</strong><p>Photo identification is unverified. Identify the item yourself and check your city's guidance or ask the recycling centre.</p></div></div>{% else %}<div class="result-note">{{ icon('shield', 17) }} Model confidence does not guarantee accuracy. Verify the item and local disposal rules before sorting.</div>{% endif %}
-    <div class="result-actions"><a class="button button-primary" href="{{ url_for('index') }}">{{ icon('scan', 18) }} Scan another item {{ icon('arrow', 18) }}</a><a class="button button-secondary" href="{{ url_for('dashboard.dashboard', region=result.region) }}">View dashboard</a></div>
+    <div class="card-header"><h2>Item #{{ result.scan_id }}</h2><span class="badge">{{ result.status|capitalize }}</span></div>
+    <div class="classification-banner {{ result.category }}"><span class="result-symbol">{{ icon('scan', 40) }}</span><div><span class="section-kicker">{{ 'YOUR SAVED CHOICE' if result.status in ['corrected', 'confirmed'] else 'UNVERIFIED SUGGESTION' }}</span><h2>{{ result.stream_label }}</h2></div></div>
+    <dl class="result-details"><div><dt>Item</dt><dd>{{ result.material }}</dd></div><div><dt>City</dt><dd>{{ result.region }}</dd></div><div><dt>Model-reported confidence</dt><dd>{{ ('%.0f'|format(result.confidence * 100)) ~ '%' if result.status == 'suggested' else 'Not verified' }}</dd></div></dl>
+    {% if result.status == 'corrected' and result.ai_material is defined %}<p class="result-note">Original AI response: {{ result.ai_material }} ({{ result.ai_category }}). Your corrected choice is shown above.</p>{% endif %}
+    <div class="notice notice-warning">{{ icon('alert', 22) }}<div><strong>{{ 'Identification is unavailable.' if result.status == 'unresolved' else 'Verify before disposal.' }}</strong><p>A model score does not prove accuracy. Pfand, packaging and local collection rules cannot always be determined from a photo.</p></div></div>
+    <form class="correction-form" method="post" action="{{ url_for('scan.correct_page', scan_id=result.scan_id) }}">
+      <h3>Correct or confirm this result</h3>
+      <p>Identify the item yourself. For bottles and cans, check for a Pfand mark before choosing a route.</p>
+      <label for="correct-material">Item name</label>
+      <input id="correct-material" name="material" type="text" maxlength="120" required value="{{ '' if result.material in ['unverified item', 'unidentified item'] else result.material }}" placeholder="e.g. empty food tin">
+      <label for="correct-stream">Where should this item go?</label>
+      <select id="correct-stream" name="stream" required>
+        <option value="" disabled {{ 'selected' if result.stream == 'unknown' }}>Choose after checking the item</option>
+        {% for key, label in streams.items() if key != 'unknown' %}<option value="{{ key }}" {{ 'selected' if result.stream == key }}>{{ label }}</option>{% endfor %}
+      </select>
+      <input type="hidden" name="version" value="{{ result.version }}">
+      <input type="hidden" name="csrf_token" value="{{ result.csrf_token }}">
+      <button class="button button-primary" type="submit">Save my correction</button>
+    </form>
+    <div class="result-actions"><a class="button button-secondary" href="{{ url_for('dashboard.dashboard', region=result.region) }}">View dashboard</a></div>
   </section>
-  <aside class="result-guidance"><section class="bin-card"><span class="soft-icon">{{ icon('bin', 25) }}</span><span class="section-kicker">{{ 'WHEN YOU NEED HELP IDENTIFYING IT' if result.category == 'unknown' else 'CHECK YOUR LOCAL DISPOSAL GUIDE' }}</span><h2>{{ result.bin }}</h2><p>{{ result.instructions }}</p><span class="location-tag">{{ icon('pin', 15) }} {{ result.region }}</span></section><section class="tip-card"><span class="tip-heading">{{ icon('spark', 20) }} A little tip, a bigger difference.</span><p>{{ result.tip|replace('**', '')|replace('`', '') }}</p></section><p class="scan-reference">Scan #{{ result.scan_id }} · Classification saved, photo not stored.</p></aside>
+  <aside class="result-guidance"><section class="bin-card"><span class="soft-icon">{{ icon('bin', 25) }}</span><span class="section-kicker">{{ 'CHECK FIRST' if result.stream == 'unknown' else 'LOCAL GUIDANCE FOR THIS ROUTE' }}</span><h2>{{ result.bin }}</h2><p>{{ result.instructions }}</p><span class="location-tag">{{ result.region }}</span></section><section class="tip-card"><span class="tip-heading">Official city guide</span><p><a href="{{ result.source }}" target="_blank" rel="noopener noreferrer">Check {{ result.region }}'s Abfall-ABC ↗</a></p><p>Rules can change and may depend on the exact item or address.</p></section><p class="scan-reference">Scan #{{ result.scan_id }} · Classification saved, photo not stored.</p></aside>
 </div>
 {% endblock %}
