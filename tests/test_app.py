@@ -26,12 +26,12 @@ def test_config_properties():
 
 def test_pipeline_chains_without_consuming_source_early():
     from app.ai_services import SimulatedScanSource
+    from app.analytics import RegionFilter
     from app.pipeline_runner import Pipeline
-    from demo_pipeline import DemoRegionFilter
 
     source = SimulatedScanSource(count=10, seed=1)
     original = Pipeline(source)
-    filtered = original | DemoRegionFilter("Dortmund")
+    filtered = original | RegionFilter("Dortmund")
     assert source.produced == 0
     events = list(filtered)
     assert events
