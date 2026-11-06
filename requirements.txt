@@ -1,3 +1,5 @@
 flask
 pytest
 openai
+pymysql
+cryptography
