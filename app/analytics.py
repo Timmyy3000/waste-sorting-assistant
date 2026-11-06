@@ -7,7 +7,7 @@ opens a database connection or runs SQL.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from datetime import date
 from io import BytesIO
 
@@ -17,6 +17,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from app.db import CATEGORIES, Scan, ScanRepository
+from app.pipeline import Processor, ScanEvent
 
 # Categories that count as diverted from landfill for a simple recycling-rate KPI.
 _RECYCLING_STREAMS = frozenset({"recyclable", "compostable"})
@@ -192,3 +193,77 @@ class ChartRenderer:
             return buffer.getvalue()
         finally:
             plt.close(figure)
+
+
+# --- HT2: stream processors (inherit Timi's ``Processor`` base class) ---
+
+
+class RegionFilter(Processor):
+    """Keep only events whose ``region`` matches."""
+
+    def __init__(self, region: str) -> None:
+        self.region = region
+
+    @property
+    def region(self) -> str:
+        return self._region
+
+    @region.setter
+    def region(self, value: str) -> None:
+        text = value.strip() if isinstance(value, str) else ""
+        if not text:
+            raise ValueError("region must be a non-empty string")
+        self._region = text
+
+    def process(self, events: Iterator[ScanEvent]) -> Iterator[ScanEvent]:
+        for event in events:
+            if event.region == self._region:
+                yield event
+
+
+class CategoryTally(Processor):
+    """Pass-through processor that counts how many events landed in each category."""
+
+    def __init__(self) -> None:
+        self._counts: dict[str, int] = {c: 0 for c in CATEGORIES}
+
+    def setup(self) -> None:
+        """Reset all category bins to zero."""
+        self._counts = {c: 0 for c in CATEGORIES}
+
+    @property
+    def counts(self) -> dict[str, int]:
+        return dict(self._counts)
+
+    def process(self, events: Iterator[ScanEvent]) -> Iterator[ScanEvent]:
+        for event in events:
+            if event.category not in CATEGORIES:
+                raise ValueError(f"Unknown category on event: {event.category!r}")
+            self._counts[event.category] += 1
+            yield event
+
+
+class RunningRecyclingRateTracker(Processor):
+    """Pass-through processor that tracks the running recycling rate (recyclable + compostable / all)."""
+
+    def __init__(self) -> None:
+        self._seen = 0
+        self._diverted = 0
+
+    def setup(self) -> None:
+        """Clear counters before a new run."""
+        self._seen = 0
+        self._diverted = 0
+
+    @property
+    def running_rate(self) -> float:
+        if self._seen == 0:
+            return 0.0
+        return self._diverted / self._seen
+
+    def process(self, events: Iterator[ScanEvent]) -> Iterator[ScanEvent]:
+        for event in events:
+            self._seen += 1
+            if event.category in _RECYCLING_STREAMS:
+                self._diverted += 1
+            yield event
