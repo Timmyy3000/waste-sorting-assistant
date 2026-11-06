@@ -1,4 +1,4 @@
-# AI-Powered Waste Sorting & Recycling Assistant
+﻿# AI-Powered Waste Sorting & Recycling Assistant
 
 Photo-based household waste classification with region-specific disposal rules and recycling-rate analytics.
 
@@ -10,10 +10,10 @@ Capstone project, Compact Programming Course (Python), FH Dortmund, WS 2026/27.
 
 | Member | Subsystem | Files |
 |---|---|---|
-| Oluwatimilehin Ogunme | A · AI Services | `ai_services.py` |
-| Terkuma Caleb Lumun | B · Data & Rules | `db.py`, `schema.sql`, `schema_mysql.sql`, `data/rules_seed.csv`, `tests/test_db.py` |
-| Onyedikachi Onah | C · Dashboard & Analytics | `analytics.py` |
-| Moye Nyuysoni Glein Perry | D · Web App & Integration | `app/__init__.py`, `app/routes/`, `app/templates/`, `Dockerfile`, `README.md` |
+| Oluwatimilehin Ogunme | A ┬À AI Services | `ai_services.py` |
+| Terkuma Caleb Lumun | B ┬À Data & Rules | `db.py`, `schema.sql`, `schema_mysql.sql`, `data/rules_seed.csv`, `tests/test_db.py` |
+| Onyedikachi Onah | C ┬À Dashboard & Analytics | `analytics.py` |
+| Moye Nyuysoni Glein Perry | D ┬À Web App & Integration | `app/__init__.py`, `app/routes/`, `app/templates/`, `Dockerfile`, `README.md` |
 
 ## Architecture
 
@@ -33,10 +33,10 @@ flowchart LR
 app/                  Flask app
   __init__.py         create_app()
   templates/          Jinja templates (D)
-  ai_services.py      A · AI Services
-  db.py, schema*.sql  B · Data & Rules
-  analytics.py        C · Dashboard & Analytics (RecyclingStats, StatsCalculator, ChartRenderer)
-data/rules_seed.csv   B · recycling rules
+  ai_services.py      A ┬À AI Services
+  db.py, schema*.sql  B ┬À Data & Rules
+  analytics.py        C ┬À Dashboard & Analytics (RecyclingStats, StatsCalculator, ChartRenderer)
+data/rules_seed.csv   B ┬À recycling rules
 tests/                pytest tests, one file per subsystem
 requirements.txt      Python packages
 ```
@@ -64,7 +64,7 @@ Open <http://localhost:5000/scan> or <http://localhost:5000/dashboard>.
 
 ## Branches
 
-Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworkassignment002`, …
+Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworkassignment002`, ÔÇª
 
 ## UML class diagrams
 

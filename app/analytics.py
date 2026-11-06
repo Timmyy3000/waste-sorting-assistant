@@ -1,7 +1,7 @@
-"""Subsystem C – Dashboard & Analytics (owner: Onyedikachi Onah).
+﻿"""Subsystem C ÔÇô Dashboard & Analytics (owner: Onyedikachi Onah).
 
 Aggregates scan history for charts and JSON-friendly stats. All scan rows are read
-only through ``ScanRepository.get_scans()`` from subsystem B — this module never
+only through ``ScanRepository.get_scans()`` from subsystem B ÔÇö this module never
 opens a database connection or runs SQL.
 """
 
@@ -20,6 +20,22 @@ import matplotlib.pyplot as plt
 from app.db import CATEGORIES, Scan, ScanRepository
 from app.pipeline import Processor, ScanEvent
 
+
+class AnalyticsError(Exception):
+    """Base class for subsystem C (Dashboard & Analytics)."""
+
+
+class InvalidAnalyticsInputError(AnalyticsError):
+    """A value passed to analytics code is not allowed (bad category, negative count, ÔÇª)."""
+
+
+class NoDataError(AnalyticsError):
+    """Raised when an operation needs at least one scan but the filter yields none."""
+
+    def __init__(self, message: str = "No scans available for this analytics operation.") -> None:
+        super().__init__(message)
+
+
 # Categories that count as diverted from landfill for a simple recycling-rate KPI.
 _RECYCLING_STREAMS = frozenset({"recyclable", "compostable"})
 
@@ -36,7 +52,7 @@ class RecyclingStats:
         for cat in CATEGORIES:
             n = int(counts.get(cat, 0))
             if n < 0:
-                raise ValueError(f"Count for {cat!r} must be non-negative, got {n}")
+                raise InvalidAnalyticsInputError(f"Count for {cat!r} must be non-negative, got {n}")
             self.set_category_count(cat, n)
 
     @classmethod
@@ -55,7 +71,7 @@ class RecyclingStats:
     def increment_category_count(self, category: str) -> None:
         """Increase the count for one category by one."""
         if category not in CATEGORIES:
-            raise ValueError(f"Unknown category: {category!r}")
+            raise InvalidAnalyticsInputError(f"Unknown category: {category!r}")
         self._category_counts[category] = self._category_counts[category] + 1
 
     @property
@@ -66,15 +82,15 @@ class RecyclingStats:
     def get_category_count(self, category: str) -> int:
         """Getter for a single bin in ``category_counts``."""
         if category not in CATEGORIES:
-            raise ValueError(f"Unknown category: {category!r}")
+            raise InvalidAnalyticsInputError(f"Unknown category: {category!r}")
         return self._category_counts[category]
 
     def set_category_count(self, category: str, value: int) -> None:
         """Setter for a single bin (used by ``setup_from_counts`` and tests)."""
         if category not in CATEGORIES:
-            raise ValueError(f"Unknown category: {category!r}")
+            raise InvalidAnalyticsInputError(f"Unknown category: {category!r}")
         if not isinstance(value, int) or value < 0:
-            raise ValueError(f"count must be a non-negative int, got {value!r}")
+            raise InvalidAnalyticsInputError(f"count must be a non-negative int, got {value!r}")
         self._category_counts[category] = value
         self._recompute_total()
 
@@ -85,7 +101,7 @@ class RecyclingStats:
     @total_scans.setter
     def total_scans(self, value: int) -> None:
         if not isinstance(value, int) or value < 0:
-            raise ValueError(f"total_scans must be a non-negative int, got {value!r}")
+            raise InvalidAnalyticsInputError(f"total_scans must be a non-negative int, got {value!r}")
         self._total_scans = value
 
     def _recompute_total(self) -> None:
@@ -93,7 +109,7 @@ class RecyclingStats:
 
     @property
     def recycling_rate(self) -> float:
-        """Share of scans that are recyclable or compostable (0.0–1.0)."""
+        """Share of scans that are recyclable or compostable (0.0ÔÇô1.0)."""
         if self._total_scans == 0:
             return 0.0
         diverted = sum(self._category_counts[c] for c in _RECYCLING_STREAMS)
@@ -144,7 +160,7 @@ class ChartRenderer:
     @dpi.setter
     def dpi(self, value: int) -> None:
         if not isinstance(value, int) or not (40 <= value <= 600):
-            raise ValueError("dpi must be an int between 40 and 600")
+            raise InvalidAnalyticsInputError("dpi must be an int between 40 and 600")
         self._dpi = value
 
     @property
@@ -155,7 +171,7 @@ class ChartRenderer:
     def figsize(self, value: tuple[float, float]) -> None:
         w, h = value
         if w <= 0 or h <= 0:
-            raise ValueError("figsize must be positive")
+            raise InvalidAnalyticsInputError("figsize must be positive")
         self._figsize = (float(w), float(h))
 
     def setup(self) -> None:
@@ -213,7 +229,7 @@ class RegionFilter(Processor):
     def region(self, value: str) -> None:
         text = value.strip() if isinstance(value, str) else ""
         if not text:
-            raise ValueError("region must be a non-empty string")
+            raise InvalidAnalyticsInputError("region must be a non-empty string")
         self._region = text
 
     def process(self, events: Iterator[ScanEvent]) -> Iterator[ScanEvent]:
@@ -239,7 +255,7 @@ class CategoryTally(Processor):
     def process(self, events: Iterator[ScanEvent]) -> Iterator[ScanEvent]:
         for event in events:
             if event.category not in CATEGORIES:
-                raise ValueError(f"Unknown category on event: {event.category!r}")
+                raise InvalidAnalyticsInputError(f"Unknown category on event: {event.category!r}")
             self._counts[event.category] += 1
             yield event
 
@@ -276,15 +292,21 @@ def build_dashboard_payload(
     region: str | None = None,
     start: date | None = None,
     end: date | None = None,
+    require_scans: bool = False,
 ) -> dict[str, object]:
     """JSON-friendly dashboard data plus a PNG chart for Moye's dashboard route.
 
     ``repository`` must be a :class:`~app.db.ScanRepository` so scans are read only
     through ``get_scans()`` (subsystem B). Returns native Python types and a
     base64-encoded PNG for easy JSON or HTML embedding.
+
+    If ``require_scans`` is True and the filtered result has no rows, raises
+    :class:`NoDataError` (useful when a caller must not show an empty dashboard).
     """
     calculator = StatsCalculator(repository)
     stats = calculator.get_stats(region=region, start=start, end=end)
+    if require_scans and stats.total_scans == 0:
+        raise NoDataError("No scans match the chosen filters.")
     renderer = ChartRenderer()
     renderer.setup()
     png_bytes = renderer.render_category_bar_chart(stats)
