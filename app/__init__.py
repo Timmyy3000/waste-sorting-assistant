@@ -1,6 +1,8 @@
 from flask import Flask, render_template
 
 from app.config import AppConfig
+from app.db import RuleRepository, create_database
+from app.routes.api import ApiBlueprint
 from app.routes.base import BaseBlueprint
 from app.routes.dashboard import DashboardBlueprint
 from app.routes.scan import ScanBlueprint
@@ -26,7 +28,14 @@ class AppFactory:
         def index() -> str:
             return render_template("index.html")
 
-        route_groups: list[BaseBlueprint] = [ScanBlueprint(), DashboardBlueprint()]
+        with create_database() as database:
+            RuleRepository(database).load_from_csv()
+
+        route_groups: list[BaseBlueprint] = [
+            ScanBlueprint(),
+            DashboardBlueprint(),
+            ApiBlueprint(),
+        ]
         for group in route_groups:
             app.register_blueprint(group.blueprint)
         return app

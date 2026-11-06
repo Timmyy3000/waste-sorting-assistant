@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="description" content="Waste classification result."><title>Classification result</title></head>
+<body>
+  <h1>Classification result</h1>
+  <p>Category: <strong>{{ result.category }}</strong></p>
+  <p>Material: {{ result.material }}</p>
+  <p>Confidence: {{ "%.0f"|format(result.confidence * 100) }}%</p>
+  {% if result.needs_confirmation %}<p>Please confirm this low-confidence result.</p>{% endif %}
+  <p>Bin: {{ rule.bin }}</p>
+  <p>Local rule: {{ rule.instructions }}</p>
+  <p>Tip: {{ result.tip }}</p>
+  <p>Saved scan: {{ scan_id }}</p>
+  <a href="{{ url_for('scan.scan') }}">Scan another item</a>
+</body>
+</html>

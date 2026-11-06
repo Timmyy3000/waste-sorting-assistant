@@ -9,7 +9,7 @@ class AppConfig:
     def __init__(self) -> None:
         self._upload_limit = 5 * 1024 * 1024
         self._allowed_types = {"jpg", "jpeg", "png"}
-        self._database_host = os.getenv("DB_HOST", "localhost")
+        self._database_host = os.getenv("DB_HOST", "")
         self._database_name = os.getenv("DB_NAME", "waste_sorting")
         self._database_user = os.getenv("DB_USER", "")
         self._database_password = os.getenv("DB_PASSWORD", "")
