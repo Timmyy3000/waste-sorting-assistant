@@ -2,3 +2,5 @@ flask
 pytest
 openai
 pytest-cov
+pymysql
+cryptography
