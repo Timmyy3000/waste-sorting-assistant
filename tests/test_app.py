@@ -144,6 +144,49 @@ def test_provider_failure_is_friendly(client, monkeypatch):
     assert b"Traceback" not in response.data
 
 
+@pytest.mark.parametrize("path", ["/scan", "/api/classify"])
+def test_unverified_provider_never_guesses_a_bin(client, monkeypatch, path):
+    from app.ai_services import AIClient
+
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://chat.kiconnect.nrw/api/v1")
+
+    def no_provider_call(*args, **kwargs):
+        pytest.fail("Unverified provider must not receive a classification request")
+
+    monkeypatch.setattr(AIClient, "call_vision", no_provider_call)
+    response = client.post(path, data={
+        "region": "Dortmund", "photo": (BytesIO(b"\x89PNG\r\n\x1a\nimage"), "item.png"),
+    })
+    assert response.status_code == 200
+    if path == "/scan":
+        assert b"Do not choose a bin based on this result" in response.data
+        assert b"Not available" in response.data
+        assert b"Restm" not in response.data
+    else:
+        result = response.get_json()
+        assert result["category"] == "unknown"
+        assert result["material"] == "unverified item"
+        assert result["confidence"] == 0
+        assert result["needs_confirmation"] is True
+        assert result["bin"] == "Wertstoffhof"
+    assert client.get("/api/stats").get_json()["category_counts"]["unknown"] == 1
+
+
+def test_blank_ai_material_becomes_unknown_instead_of_database_error(client, monkeypatch):
+    from app.ai_services import AIClient
+
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://example.org/v1")
+    monkeypatch.setattr(AIClient, "call_vision", lambda *args: '{"category":"landfill","material":"  ","confidence":0.99}')
+    monkeypatch.setattr(AIClient, "call_text", lambda *args: "Consult local rules.")
+    response = client.post("/api/classify", data={
+        "region": "Dortmund", "photo": (BytesIO(b"\x89PNG\r\n\x1a\nimage"), "blank.png"),
+    })
+    assert response.status_code == 200
+    assert response.get_json()["category"] == "unknown"
+    assert response.get_json()["material"] == "unidentified item"
+    assert response.get_json()["bin"] == "Wertstoffhof"
+
+
 def test_upload_limit_and_404_are_friendly(client):
     client.application.config["MAX_CONTENT_LENGTH"] = 100
     assert client.post("/api/classify", data={"photo": (BytesIO(b"x" * 200), "large.png")}).status_code == 413

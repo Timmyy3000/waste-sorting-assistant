@@ -10,7 +10,7 @@
       {% include 'sorting_illustration.html' %}
       <span class="stage-caption">Illustration · Always follow your local disposal rules.</span>
     </div>
-    <div class="story-features"><span>{{ icon('spark', 17) }} Photo-based guidance</span><span>{{ icon('pin', 17) }} Region-specific rules</span></div>
+    <div class="story-features"><span>{{ icon('spark', 17) }} Photo identification may be unavailable</span><span>{{ icon('pin', 17) }} Region-specific rules</span></div>
   </div>
 
   <section class="card upload-card" aria-labelledby="upload-heading">
@@ -18,16 +18,16 @@
       <div><span class="step-label">A SMALL STEP STARTS HERE</span><h2 id="upload-heading">What are we sorting?</h2></div>
       <span class="soft-icon">{{ icon('scan', 24) }}</span>
     </div>
-    <p class="upload-intro">Choose your city and add a photo. We'll help with the rest.</p>
+    <p class="upload-intro">Choose your city and add a photo. Photo identification is currently unverified with KI:connect; check local rules before choosing a bin.</p>
     {% include 'upload_form.html' %}
-    <div class="upload-privacy">{{ icon('shield', 18) }}<span>Photo sent to the AI provider for analysis.<br>We save the classification, not your photo.</span></div>
+    <div class="upload-privacy">{{ icon('shield', 18) }}<span>On KI:connect, the photo is not sent to the unverified model.<br>We save the unverified result, not your photo.</span></div>
   </section>
 </section>
 
 <section class="journey-strip" aria-label="How it works">
   <article><span class="journey-number">01</span><div><h2>One item, one photo.</h2><p>A clear view helps identify the material.</p></div></article>
   <article><span class="journey-number">02</span><div><h2>A little local knowledge.</h2><p>Your city's rules, not a one-size-fits-all answer.</p></div></article>
-  <article><span class="journey-number">03</span><div><h2>The right next step.</h2><p>A bin recommendation and a practical tip.</p></div></article>
+  <article><span class="journey-number">03</span><div><h2>Check before sorting.</h2><p>If identification is unavailable, consult your city's guide.</p></div></article>
 </section>
 
 <section class="category-section">

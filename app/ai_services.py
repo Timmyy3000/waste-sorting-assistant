@@ -12,6 +12,7 @@ import random
 import time
 from datetime import datetime
 from typing import Iterable, Iterator
+from urllib.parse import urlparse
 
 from app.ai_prompts import CLASSIFY_PROMPT, TIP_PROMPT
 from app.pipeline import ScanEvent, Source
@@ -185,7 +186,11 @@ class AIService:
         category = data.get("category", "unknown")
         if category not in CATEGORIES:
             category = "unknown"
-        return Classification(category, data.get("material", ""), float(data.get("confidence", 0.0)))
+        material = data.get("material")
+        if not isinstance(material, str) or not material.strip():
+            # A missing item name cannot justify a category or a disposal bin.
+            return Classification("unknown", "unidentified item", 0.0)
+        return Classification(category, material, float(data.get("confidence", 0.0)))
 
     def generate_tip(self, category: str, region: str) -> str:
         """Ask the AI for a short disposal tip (max 300 characters)."""
@@ -199,10 +204,24 @@ class AIService:
         Raises an AIServiceError subclass when something goes wrong; D's Flask error
         handler turns it into a clean message using `http_status`.
         """
+        # Live KI:connect tests returned confident but unrelated object names for
+        # real photos. Until a vision-capable model is verified, never turn those
+        # guesses into disposal advice. Other configured providers retain A's
+        # normal classification workflow.
+        if urlparse(os.getenv("OPENAI_BASE_URL", "")).hostname == "chat.kiconnect.nrw":
+            self._check_image(image_bytes)
+            result = Classification("unknown", "unverified item", 0.0)
+            answer = result.to_dict()
+            answer["region"] = region
+            answer["tip"] = "Photo identification is unavailable with this provider. Check the item and your city's waste guide before disposal."
+            return answer
         result = self.classify_image(image_bytes)
         answer = result.to_dict()
         answer["region"] = region
-        answer["tip"] = self.generate_tip(result.category, region)
+        answer["tip"] = (
+            "The item could not be identified. Check your city's waste guide before disposal."
+            if result.category == "unknown" else self.generate_tip(result.category, region)
+        )
         return answer
 
     @staticmethod

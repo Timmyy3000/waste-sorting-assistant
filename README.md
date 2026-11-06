@@ -1,6 +1,8 @@
 ﻿# AI-Powered Waste Sorting & Recycling Assistant
 
-Photo-based household waste classification with region-specific disposal rules and recycling-rate analytics.
+Waste-sorting prototype with region-specific disposal rules and recycling-rate
+analytics. Photo classification requires a separately verified vision provider;
+the included KI:connect configuration currently returns unverified results.
 
 Capstone project, Compact Programming Course (Python), FH Dortmund, WS 2026/27.
 
@@ -67,11 +69,16 @@ server needs their own credential or administrator-provided secret.
 3. Start Flask normally. `AppConfig.configure_ai()` loads the secret server-side.
    An existing `OPENAI_API_KEY` environment variable takes precedence.
 
-The configured provider is KI:connect at `https://chat.kiconnect.nrw/api/v1`.
-`mistralai-mistral-small-4` was verified with an image-input request. The existing
-subsystem A client uses the OpenAI SDK's `OPENAI_BASE_URL` environment support;
-its implementation is unchanged. Uploaded photos go to this provider for
-classification; only classification records, not photo files, are stored here.
+The sample KI:connect configuration uses `https://chat.kiconnect.nrw/api/v1`.
+**Photo classification is not verified on this provider.** Live checks with
+`mistralai-mistral-small-4` mislabeled cardboard, metal, glass and plastic with
+high reported confidence; sending an image successfully did not mean the model
+actually interpreted it. For this endpoint the app deliberately does not call
+the model: uploads receive an `unknown` result and a prompt to consult local
+guidance, not a guessed bin. A separately configured, verified vision provider
+can use the normal classification workflow. Even then, model confidence is not
+measured accuracy and local rules are category-level, not item-specific. Only
+classification records, not photo files, are stored here.
 
 ### Docker with MySQL
 
