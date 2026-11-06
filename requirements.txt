@@ -4,3 +4,4 @@ openai
 pytest-cov
 pymysql
 cryptography
+matplotlib
