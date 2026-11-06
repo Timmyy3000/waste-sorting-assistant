@@ -59,6 +59,8 @@ Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworka
 
 ## UML class diagrams
 
+### Subsystem D (Web App & Integration)
+
 Subsystem D's implemented classes. Solid triangle arrows show inheritance;
 dashed arrows show dependencies. The pages are placeholders and do not yet
 connect to the other subsystems.
