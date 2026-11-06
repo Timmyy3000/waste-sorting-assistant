@@ -99,97 +99,8 @@ Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworka
 
 ## UML class diagrams
 
-### Subsystem D (Web App & Integration)
-
-Subsystem D's implemented classes. Solid triangle arrows show inheritance and
-dashed arrows show dependencies.
-
-```mermaid
-classDiagram
-    direction LR
-    class AppConfig {
-        +__init__()
-        +upload_limit: int
-        +allowed_types: set
-        +database_host: str
-        +database_name: str
-        +database_user: str
-        +database_password: str
-        +configure_ai()
-    }
-    class AppFactory {
-        +__init__(config)
-        +config: AppConfig
-        +create() Flask
-        #_register_error_handlers(app)
-    }
-    class BaseBlueprint {
-        <<abstract>>
-        -_blueprint: Blueprint
-        +__init__(name, url_prefix)
-        +blueprint: Blueprint
-        +register_routes()
-    }
-    class ScanBlueprint {
-        +__init__()
-        +register_routes()
-        +scan()
-    }
-    class ScanWorkflow {
-        -_service: AIService
-        +__init__(service)
-        +get_regions() list~str~
-        +submit(upload, region) dict
-    }
-    class DashboardBlueprint {
-        +__init__()
-        +register_routes()
-        +dashboard()
-        +dashboard_data()
-    }
-    class ApiBlueprint {
-        +__init__()
-        +register_routes()
-        +stats()
-        +classify()
-    }
-    class Pipeline {
-        -_source: Source
-        -_processors: list~Processor~
-        +__or__(processor) Pipeline
-        +run() Iterator~ScanEvent~
-        +__iter__() Iterator~ScanEvent~
-    }
-    BaseBlueprint <|-- ScanBlueprint
-    BaseBlueprint <|-- DashboardBlueprint
-    BaseBlueprint <|-- ApiBlueprint
-    AppFactory ..> AppConfig : configures
-    AppFactory ..> ScanBlueprint : registers
-    AppFactory ..> DashboardBlueprint : registers
-    AppFactory ..> ApiBlueprint : registers
-    ScanBlueprint ..> ScanWorkflow : submits upload
-    ApiBlueprint ..> ScanWorkflow : same workflow
-    ScanWorkflow ..> AIService : classifies and tips
-    ScanWorkflow ..> ScanRepository : saves
-    ScanWorkflow ..> RuleRepository : checks local rules
-    Pipeline o-- Source : reads
-    Pipeline o-- Processor : chains
-```
-
-**D data flow:** `create_app()` → `AppFactory.create()` → config, rule setup,
-blueprint registration, error handlers. Flask calls `scan()` for an upload;
-`ScanWorkflow.submit()` validates the file/region, calls A, reads B's rule,
-and saves through B's repository. Both HTML and JSON routes use this workflow.
-HT3 rejects invalid requests using Werkzeug's `BadRequest`; the custom D
-exception hierarchy is introduced only on the HT4 branch.
-`DashboardBlueprint` and `ApiBlueprint` use `dashboard_payload()`, which calls
-C's `build_dashboard_payload()`. The web adapter uses C's category counts to
-exclude `unknown` scans from the agreed recycling-rate denominator.
-
-The responsive Jinja templates share `base.html`, SVG icons, an upload partial,
-local CSS, and small JavaScript enhancements. No CDN, frontend framework or
-browser-side credential is required. Earlier homework branches keep their own
-smaller D diagrams; HT1/HT2 pages explicitly identify preview-only features.
+The diagrams follow the team presentation order A, B, C, then D.
+Only classes implemented on this assignment branch are shown.
 
 ### Subsystem A (AI Services)
 
@@ -223,33 +134,6 @@ classDiagram
     AIServiceError <|-- ImageTooLargeError
     AIServiceError <|-- AIUnavailableError
 ```
-
-`create_app()` calls `AppFactory.create()`, which loads rules and registers the
-three route groups. Each request opens and closes its own database connection.
-
-HT2 stream runner:
-
-```mermaid
-classDiagram
-    class Pipeline {
-        +run() Iterator
-        +__or__(processor) Pipeline
-        +__iter__() Iterator
-    }
-    class Source {
-        <<abstract>>
-        +__iter__() Iterator
-    }
-    class Processor {
-        <<abstract>>
-        +process(events) Iterator
-    }
-    Pipeline --> Source
-    Pipeline --> Processor
-```
-
-Run `python demo_pipeline.py` for an integrated stream through subsystem C's
-processors and subsystem B's database sink.
 
 ### Subsystem B (Data & Rules)
 
@@ -358,6 +242,110 @@ classDiagram
 ```
 
 HT3: ``DashboardBlueprint`` (subsystem D's routes file) calls ``build_dashboard_payload()`` from ``analytics.py``, which uses only ``ScanRepository.get_scans()`` and returns JSON-friendly fields plus a base64 PNG. Endpoints: ``GET /dashboard`` (HTML + chart) and ``GET /dashboard/data`` (JSON).
+
+### Subsystem D (Web App & Integration)
+
+Moye's implemented HT3 classes are shown last. The HT4-only custom exceptions
+are deliberately not included in this branch's diagram.
+
+```mermaid
+classDiagram
+    direction TB
+    class AppConfig {
+        +__init__()
+        +upload_limit: int
+        +allowed_types: set
+        +database_host: str
+        +database_name: str
+        +database_user: str
+        +database_password: str
+        +configure_ai()
+    }
+    class AppFactory {
+        +__init__(config)
+        +config: AppConfig
+        +create() Flask
+        #_register_error_handlers(app)
+    }
+    class BaseBlueprint {
+        <<abstract>>
+        -_blueprint: Blueprint
+        +__init__(name, url_prefix)
+        +blueprint: Blueprint
+        +register_routes()
+    }
+    class ScanBlueprint {
+        +__init__()
+        +register_routes()
+        +scan()
+    }
+    class ScanWorkflow {
+        -_service: AIService
+        +__init__(service)
+        +get_regions() list~str~
+        +submit(upload, region) dict
+    }
+    class DashboardBlueprint {
+        +__init__()
+        +register_routes()
+        +dashboard()
+        +dashboard_data()
+    }
+    class ApiBlueprint {
+        +__init__()
+        +register_routes()
+        +stats()
+        +classify()
+    }
+    BaseBlueprint <|-- ScanBlueprint
+    BaseBlueprint <|-- DashboardBlueprint
+    BaseBlueprint <|-- ApiBlueprint
+    AppFactory ..> AppConfig : configures
+    AppFactory ..> ScanBlueprint : registers
+    AppFactory ..> DashboardBlueprint : registers
+    AppFactory ..> ApiBlueprint : registers
+    ScanBlueprint ..> ScanWorkflow : submits upload
+    ApiBlueprint ..> ScanWorkflow : same workflow
+    ScanWorkflow ..> AIService : classifies and tips
+    ScanWorkflow ..> ScanRepository : saves
+    ScanWorkflow ..> RuleRepository : checks local rules
+```
+
+#### D's pipeline runner
+
+```mermaid
+classDiagram
+    direction LR
+    class Pipeline {
+        -_source: Source
+        -_processors: list~Processor~
+        +__init__(source, processors)
+        +run() Iterator
+        +__or__(processor) Pipeline
+        +__iter__() Iterator
+    }
+    class Source {
+        <<abstract>>
+        +__iter__() Iterator
+    }
+    class Processor {
+        <<abstract>>
+        +process(events) Iterator
+    }
+    Pipeline o-- Source : reads
+    Pipeline o-- Processor : chains
+```
+
+`create_app()` calls `AppFactory.create()` to load settings and rules, register
+blueprints and install handlers. `ScanWorkflow.submit()` validates a photo and
+region, calls A, reads B's rule, and saves through B's repository. The HTML and
+JSON routes share this workflow. Invalid HT3 requests use Werkzeug's BadRequest;
+the custom WebAppError/UploadError hierarchy belongs to HT4.
+
+`dashboard_payload()` calls C's analytics and adapts its category counts to
+exclude unknown items from the recycling-rate denominator. Database connections
+are opened and closed per request. Run `python demo_pipeline.py` for the
+integrated lazy stream. Source and Processor belong to Timi; Pipeline to Moye.
 
 ## Testing and coverage
 
