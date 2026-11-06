@@ -1,0 +1,21 @@
+{% macro icon(name, size=20) -%}
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{% if name == 'leaf' %}<path d="M20 4c-8-1-15 2-15 9a6 6 0 0 0 6 6c7 0 10-7 9-15Z"/><path d="m4 21 11-11M9 15v-5M9 15h5"/>
+{% elif name == 'scan' %}<path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3M7 12h10"/>
+{% elif name == 'chart' %}<path d="M4 3v17h17M9 15v-4m5 4V7m5 8V4"/>
+{% elif name == 'upload' %}<path d="m8 8 4-4 4 4m-4-4v12M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>
+{% elif name == 'arrow' %}<path d="M4 12h16m-6-6 6 6-6 6"/>
+{% elif name == 'pin' %}<path d="M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>
+{% elif name == 'spark' %}<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Zm7-2v4m-2-2h4"/>
+{% elif name == 'check' %}<path d="m5 12 4 4L19 6"/>
+{% elif name == 'shield' %}<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/>
+{% elif name == 'alert' %}<path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/>
+{% elif name == 'image' %}<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1"/><path d="m3 17 5-5 4 4 4-6 5 7"/>
+{% elif name == 'bin' %}<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>
+{% elif name == 'recycle' %}<path d="m9 3 3-1 4 7m-3-1 3 1 1-3M21 12l1 3-8 4m1-3-1 3 3 1M8 21l-3-1-1-9m3 2-3-2-2 3"/>
+{% elif name == 'code' %}<path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/>
+{% elif name == 'clock' %}<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+{% elif name == 'close' %}<path d="m6 6 12 12M6 18 18 6"/>
+{% endif %}
+</svg>
+{%- endmacro %}
