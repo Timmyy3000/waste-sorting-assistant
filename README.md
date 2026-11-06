@@ -35,7 +35,7 @@ app/                  Flask app
   templates/          Jinja templates (D)
   ai_services.py      A · AI Services          (to be added)
   db.py, schema.sql   B · Data & Rules         (to be added)
-  analytics.py        C · Dashboard & Analytics (to be added)
+  analytics.py        C · Dashboard & Analytics (RecyclingStats, StatsCalculator, ChartRenderer)
 data/rules_seed.csv   B · recycling rules      (to be added)
 tests/                pytest tests, one file per subsystem
 requirements.txt      Python packages
@@ -128,6 +128,37 @@ temporary stand-in; the team's filter, counter, and database sink are not yet
 available, so this is not a complete database pipeline.
 
 The other subsystem diagrams will be added when supplied by their owners.
+
+### Subsystem C (Dashboard & Analytics)
+
+```mermaid
+classDiagram
+    direction LR
+    class RecyclingStats {
+        +category_counts: dict
+        +total_scans: int
+        +recycling_rate: float
+        +from_scans(list~Scan~) RecyclingStats
+        +record_scan(scan: Scan)
+    }
+    class StatsCalculator {
+        +repository: ScanRepository
+        +get_stats(region, start, end) RecyclingStats
+        +setup()
+    }
+    class ChartRenderer {
+        +dpi: int
+        +figsize: tuple
+        +render_category_bar_chart(stats) bytes
+        +setup()
+    }
+    class ScanRepository {
+        +get_scans(...) list~Scan~
+    }
+    StatsCalculator ..> ScanRepository : reads scans only
+    StatsCalculator ..> RecyclingStats : builds
+    ChartRenderer ..> RecyclingStats : plots
+```
 
 ## Team video
 
