@@ -1,4 +1,9 @@
 flask
 pytest
 openai
+<<<<<<< HEAD
 pytest-cov
+=======
+pymysql
+cryptography
+>>>>>>> caleb/ht3

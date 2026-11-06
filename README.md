@@ -59,7 +59,75 @@ Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworka
 
 ## UML class diagrams
 
-_Added per subsystem as it is implemented._
+Subsystem D's implemented classes. Solid triangle arrows show inheritance;
+dashed arrows show dependencies. The pages are placeholders and do not yet
+connect to the other subsystems.
+
+```mermaid
+classDiagram
+    direction LR
+    class AppConfig {
+        +upload_limit: int
+        +allowed_types: set
+        +database_host: str
+        +database_name: str
+        +database_user: str
+        +database_password: str
+    }
+    class AppFactory {
+        +config: AppConfig
+        +create() Flask
+    }
+    class BaseBlueprint {
+        <<abstract>>
+        +blueprint: Blueprint
+        +register_routes()
+    }
+    class ScanBlueprint {
+        +register_routes()
+        +scan()
+    }
+    class DashboardBlueprint {
+        +register_routes()
+        +dashboard()
+    }
+    BaseBlueprint <|-- ScanBlueprint
+    BaseBlueprint <|-- DashboardBlueprint
+    AppFactory ..> AppConfig : configures
+    AppFactory ..> ScanBlueprint : registers
+    AppFactory ..> DashboardBlueprint : registers
+```
+
+`create_app()` calls `AppFactory.create()`, which registers the two route
+groups. Configuration lives in an `AppConfig` object; the web layer does not
+yet store scan data. The dashed arrows represent dependencies, not inheritance.
+
+HT2 stream runner:
+
+```mermaid
+classDiagram
+    class Pipeline {
+        +run() Iterator
+        +__or__(processor) Pipeline
+        +__iter__() Iterator
+    }
+    class Source {
+        <<abstract>>
+        +__iter__() Iterator
+    }
+    class Processor {
+        <<abstract>>
+        +process(events) Iterator
+    }
+    Pipeline --> Source
+    Pipeline --> Processor
+```
+
+Run `python demo_pipeline.py` for a simulated stream. Its region filter is a
+temporary stand-in; the team's filter, counter, and database sink are not yet
+available, so this is not a complete database pipeline.
+
+The other subsystem diagrams will be added when supplied by their owners.
 
 ## Team video
 
