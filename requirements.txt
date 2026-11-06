@@ -3,3 +3,4 @@ pytest
 openai
 pymysql
 cryptography
+matplotlib
