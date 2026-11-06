@@ -25,17 +25,44 @@ MYSQL_SCHEMA_PATH = Path(__file__).parent / "schema_mysql.sql"
 RULES_CSV_PATH = Path(__file__).parent.parent / "data" / "rules_seed.csv"
 
 
+# ---------------------------------------------------------------- exceptions (HT4)
+#   DatabaseError            every error of subsystem B (catch this to catch them all)
+#   ├── InvalidScanError     a value is not allowed (bad category, confidence 1.5, ...)
+#   └── RuleNotFoundError    there is no rule for this region + category
+
+
+class DatabaseError(Exception):
+    """Base class for all errors of subsystem B (Data & Rules)."""
+
+
+class InvalidScanError(DatabaseError):
+    """A scan (or rule) value is not allowed, e.g. category 'glass' or confidence 1.5."""
+
+
+class RuleNotFoundError(DatabaseError):
+    """There is no disposal rule for this region and category."""
+
+    def __init__(self, region: str, category: str) -> None:
+        super().__init__(f"No rule for region {region!r} and category {category!r}")
+        self.region = region  # kept so the web app can show a helpful message
+        self.category = category
+
+
+# The error classes of the two database drivers. We turn them into DatabaseError.
+DRIVER_ERRORS = (sqlite3.Error, pymysql.MySQLError)
+
+
 def _clean_text(value: str, field: str) -> str:
     """Return the text without outer spaces. Refuse anything that is not a non-empty string."""
     if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{field} must be a non-empty string, got {value!r}")
+        raise InvalidScanError(f"{field} must be a non-empty string, got {value!r}")
     return value.strip()
 
 
 def _check_category(value: str) -> str:
     """Return the category if it is one of the 4 allowed ones, else raise."""
     if value not in CATEGORIES:
-        raise ValueError(f"Unknown category: {value!r}. Allowed: {', '.join(CATEGORIES)}")
+        raise InvalidScanError(f"Unknown category: {value!r}. Allowed: {', '.join(CATEGORIES)}")
     return value
 
 
@@ -69,7 +96,7 @@ class Scan:
     @id.setter
     def id(self, value: int | None) -> None:
         if value is not None and not isinstance(value, int):
-            raise ValueError(f"id must be an int or None, got {value!r}")
+            raise InvalidScanError(f"id must be an int or None, got {value!r}")
         self._id = value
 
     @property
@@ -79,7 +106,7 @@ class Scan:
     @timestamp.setter
     def timestamp(self, value: datetime) -> None:
         if not isinstance(value, datetime):
-            raise ValueError(f"timestamp must be a datetime, got {value!r}")
+            raise InvalidScanError(f"timestamp must be a datetime, got {value!r}")
         self._timestamp = value
 
     @property
@@ -113,7 +140,7 @@ class Scan:
     @confidence.setter
     def confidence(self, value: float) -> None:
         if not isinstance(value, (int, float)) or not 0.0 <= value <= 1.0:
-            raise ValueError(f"confidence must be a number between 0 and 1, got {value!r}")
+            raise InvalidScanError(f"confidence must be a number between 0 and 1, got {value!r}")
         self._confidence = float(value)
 
     @property
@@ -200,8 +227,10 @@ class Database:
     @path.setter
     def path(self, value: str) -> None:
         if self.is_connected:
-            raise ValueError("Close the database before changing its path")
-        self._path = _clean_text(value, "path")
+            raise DatabaseError("Close the database before changing its path")
+        if not isinstance(value, str) or not value.strip():
+            raise DatabaseError(f"path must be a non-empty string, got {value!r}")
+        self._path = value.strip()
 
     @property
     def is_connected(self) -> bool:
@@ -218,7 +247,10 @@ class Database:
     def connect(self):
         """Open the connection (does nothing if it is already open)."""
         if self._connection is None:
-            self._connection = self._open_connection()
+            try:
+                self._connection = self._open_connection()
+            except DRIVER_ERRORS as error:  # e.g. MySQL server not running, wrong password
+                raise DatabaseError(f"Cannot connect to {self._path}: {error}") from error
         return self._connection
 
     def _open_connection(self):
@@ -249,15 +281,19 @@ class Database:
             for sql, params in statements:
                 cursor.execute(self._convert_sql(sql), params)
             self.connection.commit()  # save everything
-        except Exception:
-            self.connection.rollback()  # undo everything, then let the error continue
-            raise
+        except DRIVER_ERRORS as error:
+            self.connection.rollback()  # undo everything ...
+            # ... and report it as OUR error; "from error" keeps the original for debugging
+            raise DatabaseError(f"Could not save to the database: {error}") from error
         return cursor.lastrowid
 
     def query(self, sql: str, params: tuple = ()) -> list[dict]:
         """Run a SELECT and return every row as a dict: {"column name": value}."""
         cursor = self.connection.cursor()
-        cursor.execute(self._convert_sql(sql), params)
+        try:
+            cursor.execute(self._convert_sql(sql), params)
+        except DRIVER_ERRORS as error:
+            raise DatabaseError(f"Could not read from the database: {error}") from error
         return [dict(row) for row in cursor.fetchall()]
 
     def close(self) -> None:
@@ -385,7 +421,7 @@ class ScanRepository(BaseRepository):
     def save_scan(self, scan: Scan) -> int:
         """Insert a new scan, store the new id on the object and return it."""
         if scan.id is not None:
-            raise ValueError(f"Scan already saved with id {scan.id}")
+            raise InvalidScanError(f"Scan already saved with id {scan.id}")
         new_id = self._execute(
             "INSERT INTO scans (timestamp, region, category, material, confidence, corrected) "
             "VALUES (?, ?, ?, ?, ?, ?)",
@@ -449,14 +485,17 @@ class RuleRepository(BaseRepository):
         one transaction, so a bad file never leaves half the rules behind.
         """
         rules = []
-        with open(path, newline="", encoding="utf-8") as file:
-            for line_number, row in enumerate(csv.DictReader(file), start=2):  # line 1 = header
-                try:
-                    rules.append(
-                        RecyclingRule(row["region"], row["category"], row["bin"], row["instructions"])
-                    )
-                except (KeyError, ValueError) as error:
-                    raise ValueError(f"{path}, line {line_number}: {error}") from error
+        try:
+            with open(path, newline="", encoding="utf-8") as file:
+                for line_number, row in enumerate(csv.DictReader(file), start=2):  # line 1 = header
+                    try:
+                        rules.append(
+                            RecyclingRule(row["region"], row["category"], row["bin"], row["instructions"])
+                        )
+                    except (KeyError, InvalidScanError) as error:  # missing column / bad value
+                        raise DatabaseError(f"{path}, line {line_number}: {error}") from error
+        except OSError as error:  # file missing or not readable
+            raise DatabaseError(f"Cannot read rules file {path}: {error}") from error
 
         insert = "INSERT INTO rules (region, category, bin, instructions) VALUES (?, ?, ?, ?)"
         statements = [("DELETE FROM rules", ())]
@@ -465,12 +504,12 @@ class RuleRepository(BaseRepository):
         return len(rules)
 
     def get_rule(self, region: str, category: str) -> RecyclingRule:
-        """Return the rule for this region and category. Raises LookupError if there is none."""
+        """Return the rule for this region and category. Raises RuleNotFoundError if there is none."""
         rules = self._query(
             "SELECT * FROM rules WHERE region = ? AND category = ?", (region, category)
         )
         if not rules:
-            raise LookupError(f"No rule for region {region!r} and category {category!r}")
+            raise RuleNotFoundError(region, category)
         return rules[0]  # the primary key (region, category) guarantees at most one
 
     def get_regions(self) -> list[str]:
