@@ -8,14 +8,15 @@ document.querySelectorAll('[data-scan-form]').forEach((form) => {
   const image = form.querySelector('[data-preview-image]');
   const actions = form.querySelector('[data-file-actions]');
   let previewUrl = null;
+  image.addEventListener('error', () => { image.hidden = true; });
 
   function showFile() {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl = null;
     error.hidden = true;
     const file = input.files[0];
-    if (file && (!/\.(jpe?g|png)$/i.test(file.name) || (file.type && !['image/jpeg', 'image/png'].includes(file.type)))) {
-      error.textContent = 'Please choose a JPG or PNG photo.';
+    if (file && (!/\.(jpe?g|png|webp|gif|bmp|tiff?|avif|heic|heif)$/i.test(file.name) || (file.type && !file.type.startsWith('image/')))) {
+      error.textContent = 'Choose a supported photo (JPG, PNG, WebP, GIF, BMP, TIFF, AVIF or HEIC).';
       error.hidden = false;
       input.value = '';
     } else if (file && file.size > 5 * 1024 * 1024) {
@@ -28,6 +29,7 @@ document.querySelectorAll('[data-scan-form]').forEach((form) => {
     preview.hidden = !selected;
     actions.hidden = !selected;
     if (selected) {
+      image.hidden = false;
       previewUrl = URL.createObjectURL(selected);
       image.src = previewUrl;
       form.querySelector('[data-file-name]').textContent = selected.name;

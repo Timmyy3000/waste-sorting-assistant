@@ -12,7 +12,7 @@ class AppConfig:
     def __init__(self) -> None:
         load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
         self._upload_limit = 5 * 1024 * 1024
-        self._allowed_types = {"jpg", "jpeg", "png"}
+        self._allowed_types = {"jpg", "jpeg", "png", "webp", "gif", "bmp", "tif", "tiff", "avif", "heic", "heif"}
         self._database_host = os.getenv("DB_HOST", "")
         self._database_name = os.getenv("DB_NAME", "waste_sorting")
         self._database_user = os.getenv("DB_USER", "")

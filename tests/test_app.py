@@ -3,8 +3,15 @@
 from io import BytesIO
 
 import pytest
+from PIL import Image
 
 from app import create_app
+
+
+def photo(format="PNG"):
+    output = BytesIO()
+    Image.new("RGB", (64, 64), "#e2cfa0").save(output, format=format)
+    return output.getvalue()
 
 
 @pytest.fixture
@@ -27,6 +34,10 @@ def test_home_page_loads(client):
     assert b'name="region"' in response.data
     assert b"css/app.css" in response.data
     assert b"test-server-secret-not-for-browsers" not in response.data
+    assert b"Bottles and Pfand" in response.data
+    assert b"Illustration of a Pfand bottle return machine" in response.data
+    assert b"Altglas" in response.data
+    assert response.headers["X-App-Version"] == "2026-11-06-sorting-v2"
 
 
 def test_text_upload_shows_friendly_error(client):
@@ -37,7 +48,7 @@ def test_text_upload_shows_friendly_error(client):
         content_type="multipart/form-data",
     )
     assert response.status_code == 400
-    assert b"Only JPEG and PNG files are allowed" in response.data
+    assert b"Choose a supported photo" in response.data
 
 
 def test_stats_api_returns_json(client):
@@ -52,7 +63,7 @@ def test_successful_upload_is_saved_and_shown(client, monkeypatch):
     from app.ai_services import AIService
 
     def classify(self, image_bytes: bytes, region: str) -> dict:
-        assert image_bytes.startswith(b"\x89PNG")
+        assert image_bytes.startswith(b"\xff\xd8\xff")  # Normalised for vision.
         return {
             "category": "recyclable", "material": "plastic bottle", "confidence": 0.92,
             "needs_confirmation": False, "region": region, "tip": "Empty the bottle first.",
@@ -60,7 +71,7 @@ def test_successful_upload_is_saved_and_shown(client, monkeypatch):
 
     monkeypatch.setattr(AIService, "classify_upload", classify)
     response = client.post("/scan", data={
-        "region": "Dortmund", "photo": (BytesIO(b"\x89PNG\r\n\x1a\nimage"), "bottle.png"),
+        "region": "Dortmund", "photo": (BytesIO(photo()), "bottle.png"),
     })
     assert response.status_code == 200
     assert b"plastic bottle" in response.data
@@ -101,7 +112,7 @@ def test_api_upload_uses_the_same_saved_workflow(client, monkeypatch):
 
     monkeypatch.setattr(AIService, "classify_upload", classify)
     response = client.post("/api/classify", data={
-        "region": "Dortmund", "photo": (BytesIO(b"image"), "item.png"),
+        "region": "Dortmund", "photo": (BytesIO(photo()), "item.png"),
     })
     assert response.status_code == 200
     assert response.get_json()["scan_id"] > 0
@@ -137,7 +148,7 @@ def test_provider_failure_is_friendly(client, monkeypatch):
 
     monkeypatch.setattr(AIService, "classify_upload", unavailable)
     response = client.post("/scan", data={
-        "region": "Dortmund", "photo": (BytesIO(b"image"), "item.png"),
+        "region": "Dortmund", "photo": (BytesIO(photo()), "item.png"),
     })
     assert response.status_code == 503
     assert b"temporarily unavailable" in response.data
@@ -155,7 +166,7 @@ def test_unverified_provider_never_guesses_a_bin(client, monkeypatch, path):
 
     monkeypatch.setattr(AIClient, "call_vision", no_provider_call)
     response = client.post(path, data={
-        "region": "Dortmund", "photo": (BytesIO(b"\x89PNG\r\n\x1a\nimage"), "item.png"),
+        "region": "Dortmund", "photo": (BytesIO(photo()), "item.png"),
     })
     assert response.status_code == 200
     if path == "/scan":
@@ -179,7 +190,7 @@ def test_blank_ai_material_becomes_unknown_instead_of_database_error(client, mon
     monkeypatch.setattr(AIClient, "call_vision", lambda *args: '{"category":"landfill","material":"  ","confidence":0.99}')
     monkeypatch.setattr(AIClient, "call_text", lambda *args: "Consult local rules.")
     response = client.post("/api/classify", data={
-        "region": "Dortmund", "photo": (BytesIO(b"\x89PNG\r\n\x1a\nimage"), "blank.png"),
+        "region": "Dortmund", "photo": (BytesIO(photo()), "blank.png"),
     })
     assert response.status_code == 200
     assert response.get_json()["category"] == "unknown"
@@ -211,7 +222,7 @@ def test_correction_requires_owner_and_csrf_updates_stats_and_audit(client, monk
         "needs_confirmation": True, "region": region, "tip": "Check city guidance.",
     })
     upload = client.post("/api/classify", data={
-        "region": "Berlin", "photo": (BytesIO(b"\x89PNG\r\n\x1a\nimage"), "item.png"),
+        "region": "Berlin", "photo": (BytesIO(photo()), "item.png"),
     }).get_json()
     scan_id = upload["scan_id"]
     endpoint = f"/api/scans/{scan_id}/correct"
@@ -242,7 +253,7 @@ def test_form_correction_and_invalid_stream(client, monkeypatch):
         "category": "unknown", "material": "unverified item", "confidence": 0, "region": region,
     })
     client.post("/scan", data={
-        "region": "Dortmund", "photo": (BytesIO(b"\x89PNG\r\n\x1a\nimage"), "item.png"),
+        "region": "Dortmund", "photo": (BytesIO(photo()), "item.png"),
     })
     with client.session_transaction() as sess:
         token = sess["scan_csrf"]
@@ -287,6 +298,31 @@ def test_manual_special_collection_is_not_counted_as_unresolved(client):
     stats = client.get("/api/stats").get_json()
     assert stats["stream_counts"]["vehicle"] == 1
     assert stats["unresolved_scans"] == 0
+
+
+def test_ai_suggestion_shows_no_bin_until_confirmed(client, monkeypatch):
+    from app.ai_services import AIService
+
+    monkeypatch.setattr(AIService, "classify_upload", lambda self, data, region: {
+        "category": "compostable", "material": "banana peel", "confidence": 0.98,
+        "region": region, "tip": "Never use this as verified advice.",
+    })
+    first = client.post("/api/classify", data={
+        "region": "Berlin", "photo": (BytesIO(photo()), "banana.png"),
+    }).get_json()
+    assert first["stream"] == "bio"
+    assert first["status"] == "suggested"
+    assert first["needs_confirmation"] is True
+    assert first["bin"] == "Check the city's Abfall-ABC"
+    page = client.get(f"/scan/{first['scan_id']}")
+    assert b"Wrong result? Correct it" in page.data
+    assert b"No bin recommendation" in page.data
+    confirmed = client.post(f"/api/scans/{first['scan_id']}/correct", json={
+        "stream": "bio", "material": "banana peel", "version": 0,
+    }, headers={"X-CSRF-Token": first["csrf_token"]})
+    assert confirmed.status_code == 200
+    assert confirmed.get_json()["status"] == "confirmed"
+    assert confirmed.get_json()["bin"] == "Biotonne"
 
 
 def test_existing_sqlite_scans_survive_additive_schema(tmp_path, monkeypatch):

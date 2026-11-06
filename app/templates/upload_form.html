@@ -8,18 +8,18 @@
 
   <label class="field-label" for="photo">Your item</label>
   <div class="drop-zone" data-drop-zone>
-    <input id="photo" type="file" name="photo" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required aria-describedby="photo-help upload-error">
+    <input id="photo" type="file" name="photo" accept="image/*,.heic,.heif,.avif,.tif,.tiff" required aria-describedby="photo-help upload-error">
     <div class="drop-placeholder" data-drop-placeholder>
       <span class="upload-symbol">{{ icon('upload', 27) }}</span>
       <strong>Drop your photo here</strong>
       <span>or <span class="browse-text">browse files</span></span>
-      <small id="photo-help">JPG or PNG · Max. 5 MB · One item per photo</small>
+      <small id="photo-help">JPG, PNG, WebP, HEIC, AVIF and more · Max. 5 MB · Still photo</small>
     </div>
     <div class="preview" data-preview hidden><img data-preview-image alt="Your selected waste item"><span class="preview-name" data-file-name></span></div>
   </div>
   <div class="file-actions" data-file-actions hidden><span>{{ icon('check', 14) }} Photo ready</span><button class="remove-button" type="button" data-remove-file>Choose another {{ icon('close', 14) }}</button></div>
   <p class="form-error" id="upload-error" role="alert" data-upload-error hidden></p>
   <button class="button button-primary scan-button" type="submit" {% if not config.get('WEB_INTEGRATED') %}disabled{% endif %} data-submit-button><span data-button-label>{{ icon('spark', 18) }} Find the right bin</span><span class="spinner" data-spinner hidden></span><span class="button-arrow">{{ icon('arrow', 19) }}</span></button>
-  <p class="form-footnote" data-form-footnote>{% if config.get('WEB_INTEGRATED') %}A clear photo helps us give you a clearer answer.{% else %}Homework preview · Live classification is available from HT3.{% endif %}</p>
+  <p class="form-footnote" data-form-footnote>{% if config.get('WEB_INTEGRATED') %}On KI:connect, photo recognition is unverified. You can correct the result or sort without a photo.{% else %}Homework preview · Live classification is available from HT3.{% endif %}</p>
   <p class="processing-note" role="status" data-processing-note hidden>Identifying your item and finding local guidance. This may take a moment…</p>
 </form>

@@ -6,3 +6,5 @@ pymysql
 cryptography
 matplotlib
 python-dotenv
+Pillow>=11.3
+pillow-heif>=1.0

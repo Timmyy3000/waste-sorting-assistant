@@ -10,6 +10,7 @@ from werkzeug.datastructures import FileStorage
 from app.ai_services import AIService, AIUnavailableError
 from app.db import RuleRepository, Scan, ScanRepository, create_database
 from app.disposal import CATEGORY, STREAMS, guidance, suggestion
+from app.image_uploads import normalise
 from app.routes.base import BaseBlueprint
 from app.routes.errors import UploadError
 from app.scan_reviews import ReviewRepository, csrf_token, owner_hash
@@ -33,19 +34,21 @@ class ScanWorkflow:
             raise UploadError("Choose a photo and region.")
         extension = upload.filename.rsplit(".", 1)[-1].lower() if "." in upload.filename else ""
         if extension not in current_app.config["ALLOWED_TYPES"]:
-            raise UploadError("Only JPEG and PNG files are allowed.")
+            raise UploadError("Choose a supported photo (JPG, PNG, WebP, GIF, BMP, TIFF, AVIF or HEIC).")
         if region not in self.get_regions():
             raise UploadError("Choose a region from the list so we can find its local rules.")
         image_bytes = upload.read(current_app.config["MAX_CONTENT_LENGTH"] + 1)
         if not image_bytes:
             raise UploadError("The photo is empty. Please choose another file.")
+        image_bytes = normalise(image_bytes)
 
         try:
             result = self._service.classify_upload(image_bytes, region)
         except (ValueError, TypeError, KeyError):
             raise AIUnavailableError("We could not interpret the AI response. Please try another photo.") from None
         stream = suggestion(result["category"], result["material"])
-        guide = guidance(region, stream)
+        # A model-only suggestion is not enough to recommend a disposal bin.
+        guide = guidance(region, "unknown")
         with create_database() as database:
             scan = Scan(
                 None, datetime.now(timezone.utc), region, CATEGORY[stream],
@@ -57,6 +60,7 @@ class ScanWorkflow:
         result["stream"] = stream
         result["stream_label"] = STREAMS[stream]
         result["status"] = "unresolved" if stream == "unknown" else "suggested"
+        result["needs_confirmation"] = True
         result["version"] = 0
         result["bin"] = guide.bin
         result["instructions"] = guide.instructions
@@ -70,14 +74,15 @@ class ScanWorkflow:
             review = ReviewRepository(database).get_owned(scan_id, owner_hash())
         if review is None:
             raise UploadError("This scan is not available in your browser session.")
-        guide = guidance(review["region"], review["stream"])
+        guide = guidance(review["region"],
+                         "unknown" if review["status"] == "suggested" else review["stream"])
         return {
             "scan_id": scan_id, "region": review["region"], "category": review["category"],
             "stream": review["stream"], "stream_label": STREAMS[review["stream"]],
             "material": review["material"], "confidence": review["confidence"],
             "ai_category": review["ai_category"], "ai_material": review["ai_material"],
             "status": review["status"], "version": review["version"],
-            "needs_confirmation": review["status"] == "unresolved",
+            "needs_confirmation": review["status"] in ("unresolved", "suggested"),
             "bin": guide.bin, "instructions": guide.instructions, "source": guide.source,
             "tip": "Check the linked municipal guide before disposal.", "csrf_token": csrf_token(),
         }

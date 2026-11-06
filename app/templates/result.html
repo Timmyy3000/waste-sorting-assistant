@@ -8,8 +8,9 @@
     <div class="classification-banner {{ result.category }}"><span class="result-symbol">{{ icon('scan', 40) }}</span><div><span class="section-kicker">{{ 'YOUR SAVED CHOICE' if result.status in ['corrected', 'confirmed'] else 'UNVERIFIED SUGGESTION' }}</span><h2>{{ result.stream_label }}</h2></div></div>
     <dl class="result-details"><div><dt>Item</dt><dd>{{ result.material }}</dd></div><div><dt>City</dt><dd>{{ result.region }}</dd></div><div><dt>Model-reported confidence</dt><dd>{{ ('%.0f'|format(result.confidence * 100)) ~ '%' if result.status == 'suggested' else 'Not verified' }}</dd></div></dl>
     {% if result.status == 'corrected' and result.ai_material is defined %}<p class="result-note">Original AI response: {{ result.ai_material }} ({{ result.ai_category }}). Your corrected choice is shown above.</p>{% endif %}
-    <div class="notice notice-warning">{{ icon('alert', 22) }}<div><strong>{{ 'Identification is unavailable.' if result.status == 'unresolved' else 'Verify before disposal.' }}</strong><p>A model score does not prove accuracy. Pfand, packaging and local collection rules cannot always be determined from a photo.</p></div></div>
-    <form class="correction-form" method="post" action="{{ url_for('scan.correct_page', scan_id=result.scan_id) }}">
+    <div class="notice notice-warning">{{ icon('alert', 22) }}<div><strong>{{ 'Identification is unavailable.' if result.status == 'unresolved' else 'Verify before disposal.' }}</strong><p>{{ 'No bin recommendation is shown until you confirm the item.' if result.status == 'suggested' else 'A model score does not prove accuracy.' }} Pfand, packaging and local collection rules cannot always be determined from a photo.</p></div></div>
+    <a class="correction-jump" href="#correct-result">Wrong result? Correct it ↓</a>
+    <form id="correct-result" class="correction-form" method="post" action="{{ url_for('scan.correct_page', scan_id=result.scan_id) }}">
       <h3>Correct or confirm this result</h3>
       <p>Identify the item yourself. For bottles and cans, check for a Pfand mark before choosing a route.</p>
       <label for="correct-material">Item name</label>
@@ -25,6 +26,6 @@
     </form>
     <div class="result-actions"><a class="button button-secondary" href="{{ url_for('dashboard.dashboard', region=result.region) }}">View dashboard</a></div>
   </section>
-  <aside class="result-guidance"><section class="bin-card"><span class="soft-icon">{{ icon('bin', 25) }}</span><span class="section-kicker">{{ 'CHECK FIRST' if result.stream == 'unknown' else 'LOCAL GUIDANCE FOR THIS ROUTE' }}</span><h2>{{ result.bin }}</h2><p>{{ result.instructions }}</p><span class="location-tag">{{ result.region }}</span></section><section class="tip-card"><span class="tip-heading">Official city guide</span><p><a href="{{ result.source }}" target="_blank" rel="noopener noreferrer">Check {{ result.region }}'s Abfall-ABC ↗</a></p><p>Rules can change and may depend on the exact item or address.</p></section><p class="scan-reference">Scan #{{ result.scan_id }} · Classification saved, photo not stored.</p></aside>
+  <aside class="result-guidance"><section class="bin-card"><span class="soft-icon">{{ icon('bin', 25) }}</span><span class="section-kicker">{{ 'CHECK FIRST' if result.status in ['unresolved', 'suggested'] else 'LOCAL GUIDANCE FOR THIS ROUTE' }}</span><h2>{{ result.bin }}</h2><p>{{ result.instructions }}</p><span class="location-tag">{{ result.region }}</span></section><section class="tip-card"><span class="tip-heading">Official city guide</span><p><a href="{{ result.source }}" target="_blank" rel="noopener noreferrer">Check {{ result.region }}'s Abfall-ABC ↗</a></p><p>Rules can change and may depend on the exact item or address.</p></section><p class="scan-reference">Scan #{{ result.scan_id }} · Classification saved, photo not stored.</p></aside>
 </div>
 {% endblock %}

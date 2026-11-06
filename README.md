@@ -98,6 +98,9 @@ choose the appropriate route. The database preserves the initial model response
 and an append-only correction log, while the dashboard and JSON statistics use
 the latest saved choice. Recent history is visible only to the browser that
 created it. Older scans remain in aggregate statistics but are not editable.
+Even a high-confidence model suggestion does **not** display a bin until the
+user confirms or corrects it. This prevents a model confusing a whole banana
+with a banana peel from immediately giving disposal instructions.
 Cookies and a CSRF token protect corrections, but anonymous browser ownership
 is not an account system: clearing cookies loses access to previous edits. Set
 `FLASK_SECRET_KEY` to a persistent, unpredictable server secret for deployment
@@ -108,6 +111,27 @@ requires authentication, HTTPS, rate limits and privacy review.
 Dashboard figures are **counts of saved choices**, not measured real-world
 recycling or validated AI accuracy. User corrections do not retrain the model.
 Automated vision remains off for the included unverified KI:connect endpoint.
+
+### Image formats and model evaluation
+
+The upload form accepts JPG, PNG, WebP, still GIF, BMP, TIFF, AVIF and HEIC/HEIF.
+Pillow (and `pillow-heif` for HEIC) checks the **actual bytes**, rejects corrupt,
+animated or excessively large images, corrects camera orientation, and sends a
+resized JPEG to a configured vision provider. SVG and other active formats are
+not accepted. The 5 MB input limit and 20-megapixel pixel limit still apply.
+The homepage illustrates each collection stream using original SVG drawings,
+not photographs of local municipal containers; the city guide remains the
+source of truth. A visible build label and `X-App-Version` header help detect an
+old server process, and versioned asset URLs prevent stale browser CSS/JS.
+
+[TrashPanda](https://huggingface.co/datasets/rfabrik/TrashPanda) describes six
+German waste classes, but its dataset card does not declare a licence. Do not
+copy, redistribute or train on its images until permission is verified. An
+optional local-only evaluation script is provided for appropriately obtained
+files: `python scripts/evaluate_trashpanda.py PATH_TO_TRASHPANDA`. It refuses the
+known-unreliable KI:connect endpoint and reports repeated predictions without
+modifying the application database. A matching broad class is not proof of
+correct disposal (notably for Pfand bottles and mixed/special waste).
 
 ### Docker with MySQL
 

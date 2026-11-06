@@ -30,6 +30,7 @@ class AppFactory:
         app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
         self.config.configure_ai()
         app.config["WEB_INTEGRATED"] = True
+        app.config["APP_VERSION"] = "2026-11-06-sorting-v2"
         app.config["MAX_CONTENT_LENGTH"] = self.config.upload_limit
         app.config["ALLOWED_TYPES"] = self.config.allowed_types
         app.config["DB_HOST"] = self.config.database_host
@@ -53,6 +54,14 @@ class AppFactory:
         for group in route_groups:
             app.register_blueprint(group.blueprint)
         self._register_error_handlers(app)
+
+        @app.after_request
+        def identify_version(response):
+            response.headers["X-App-Version"] = app.config["APP_VERSION"]
+            if response.mimetype == "text/html":
+                response.headers["Cache-Control"] = "no-store"
+            return response
+
         return app
 
     @staticmethod

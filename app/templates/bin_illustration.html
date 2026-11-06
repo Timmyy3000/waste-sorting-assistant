@@ -1,0 +1,39 @@
+{# Lightweight original bin illustrations. Colours depict common examples, not city-specific guarantees. #}
+{% set shades = {'bio': '#79533c', 'rest': '#5a6670', 'paper': '#3979ad', 'packaging': '#e5b936'} %}
+<figure class="bin-figure">
+{% if stream in shades %}
+<svg viewBox="0 0 220 155" role="img" aria-label="Illustration of a {{ heading }} collection bin" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="110" cy="144" rx="65" ry="7" fill="#263a2b" opacity=".12"/>
+  <rect x="60" y="36" width="100" height="102" rx="12" fill="{{ shades[stream] }}" stroke="#314b3d" stroke-width="2"/>
+  <path d="M56 28h108a6 6 0 0 1 6 6v11H50V34a6 6 0 0 1 6-6Z" fill="{{ shades[stream] }}" stroke="#314b3d" stroke-width="2"/>
+  <rect x="91" y="22" width="38" height="8" rx="4" fill="#334c40"/>
+  <path d="M76 53v68m68-68v68" stroke="white" stroke-opacity=".2" stroke-width="4"/>
+  <circle cx="74" cy="138" r="8" fill="#35434a"/><circle cx="146" cy="138" r="8" fill="#35434a"/>
+  <rect x="86" y="69" width="48" height="43" rx="8" fill="white" fill-opacity=".9"/>
+  {% if stream == 'bio' %}<path d="M111 78c-18 0-21 17-12 25 14 7 27-10 24-24-5 3-9-1-12-1Z" fill="#568a64"/><path d="m100 103 19-20" stroke="#3d6d50" stroke-width="2"/>
+  {% elif stream == 'paper' %}<path d="M99 75h22l8 9v20H99V75Z" fill="#6c9ac0"/><path d="M121 75v9h8m-23 8h16m-16 5h16" stroke="white" stroke-width="2"/>
+  {% elif stream == 'packaging' %}<path d="M103 85h16l3 19h-22l3-19Zm3-8h10v8h-10Z" fill="#a37a28"/><path d="M109 92h7" stroke="white" stroke-width="2"/>
+  {% else %}<path d="M101 79h18l4 25H97l4-25Zm-5-3h28" stroke="#64727a" fill="none" stroke-width="3"/><path d="M105 84v14m10-14v14" stroke="#64727a" stroke-width="2"/>{% endif %}
+</svg>
+{% elif stream == 'glass' %}
+<svg viewBox="0 0 220 155" role="img" aria-label="Illustration of separate white, brown and green glass containers" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="110" cy="142" rx="80" ry="7" fill="#263a2b" opacity=".12"/>
+  {% for x, shade in [(31, '#b7d5ce'), (89, '#8e6750'), (147, '#538567')] %}<path d="M{{ x+5 }} 47h40l6 18v65h-52V65Z" fill="{{ shade }}" stroke="#43594b" stroke-width="2"/><path d="M{{ x+2 }} 45q24-25 46 0" fill="{{ shade }}" stroke="#43594b" stroke-width="2"/><rect x="{{ x+10 }}" y="71" width="30" height="27" rx="5" fill="#fff" fill-opacity=".85"/><path d="M{{ x+23 }} 76h4v6l3 4v8h-10v-8l3-4v-6Z" fill="{{ shade }}"/>{% endfor %}
+</svg>
+{% elif stream == 'deposit' %}
+<svg viewBox="0 0 220 155" role="img" aria-label="Illustration of a Pfand bottle return machine" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="110" cy="143" rx="74" ry="7" fill="#263a2b" opacity=".12"/>
+  <rect x="42" y="23" width="136" height="113" rx="12" fill="#d5e3d5" stroke="#456b55" stroke-width="2"/><rect x="55" y="35" width="110" height="68" rx="7" fill="#315f4a"/>
+  <path d="M101 49h18v9l5 6v27H96V64l5-6v-9Z" fill="#a9d8c3"/><path d="M99 46h22" stroke="#cbe9ad" stroke-width="5"/><path d="m112 70-6 10h5l-3 7 11-12h-5l3-5" fill="#e7f2d1"/>
+  <rect x="75" y="111" width="70" height="9" rx="4" fill="#355d4a"/><text x="110" y="132" font-size="10" font-family="sans-serif" text-anchor="middle" fill="#365d45">PFAND</text>
+</svg>
+{% else %}
+<svg viewBox="0 0 220 155" role="img" aria-label="Illustration of a specialist collection centre" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="110" cy="143" rx="77" ry="7" fill="#263a2b" opacity=".12"/>
+  <path d="M36 67 110 32l74 35v67H36V67Z" fill="#85a697" stroke="#426451" stroke-width="2"/><path d="M32 68 110 27l78 41" stroke="#345542" stroke-width="8" stroke-linejoin="round"/>
+  <rect x="57" y="84" width="36" height="50" fill="#e1eee0"/><rect x="111" y="84" width="50" height="50" fill="#e1eee0"/><path d="M136 93v31m-16-16h31" stroke="#4d7961" stroke-width="5"/>
+  <circle cx="76" cy="59" r="9" fill="#f5f8ed"/><path d="m72 59 3 3 5-6" stroke="#568966" stroke-width="2" fill="none"/>
+</svg>
+{% endif %}
+<figcaption>{{ heading }} · illustrative collection example</figcaption>
+</figure>
