@@ -95,7 +95,7 @@ quota, and managed secrets. No public hosting has been provisioned by this repo.
 ## Branches
 
 Each homework assignment has its own branch: `Homeassignment1`, `HomeworkAssignment2`,
-`HomeworkAssignment3`, `HomeworkAssignment4` (the earlier names `Homeworkassignment001`–`004` point to the same work).
+`HomeworkAssignment3`, `HomeworkAssignment4`.
 
 ## UML class diagrams
 
