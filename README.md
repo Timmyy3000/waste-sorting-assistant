@@ -181,14 +181,23 @@ classDiagram
 
 ### Subsystem D (Web App & Integration)
 
-Subsystem D's implemented classes. Solid triangle arrows show inheritance;
-dashed arrows show dependencies. This HT1 branch demonstrates the OOP web
-structure with styled preview pages; live AI/database integration starts in HT3.
+Subsystem D's five implemented classes are shown below. Solid hollow-triangle
+arrows show inheritance; the solid arrow from `AppFactory` to `AppConfig` shows
+a stored-object association; dashed arrows show registration dependencies.
+Notes beside the blueprints identify **planned**, not implemented, connections
+to A, B and C. In HT1, the web routes only display styled preview pages;
+live AI/database integration starts in HT3.
 
 ```mermaid
 classDiagram
     direction TB
     class AppConfig {
+        -_upload_limit: int
+        -_allowed_types: set
+        -_database_host: str
+        -_database_name: str
+        -_database_user: str
+        -_database_password: str
         +__init__()
         +upload_limit: int
         +allowed_types: set
@@ -221,14 +230,17 @@ classDiagram
     }
     BaseBlueprint <|-- ScanBlueprint
     BaseBlueprint <|-- DashboardBlueprint
-    AppFactory ..> AppConfig : configures
+    AppFactory --> AppConfig : holds
     AppFactory ..> ScanBlueprint : registers
     AppFactory ..> DashboardBlueprint : registers
+    note for ScanBlueprint "Planned: A AIService; B ScanRepository and RuleRepository"
+    note for DashboardBlueprint "Planned: C StatsCalculator and ChartRenderer"
 ```
 
 `create_app()` calls `AppFactory.create()`, which registers the two route
 groups. Configuration lives in an `AppConfig` object; the web layer does not
-yet store scan data. The dashed arrows represent dependencies, not inheritance.
+yet store scan data. The dashed arrows represent registration dependencies,
+not inheritance or implemented cross-subsystem calls.
 
 **Where D's state lives:** `AppConfig` owns private configuration attributes;
 `AppFactory.config` holds that configuration object; `BaseBlueprint._blueprint`
@@ -236,6 +248,23 @@ holds the Flask route group inherited by each concrete subclass. Properties
 provide controlled access. Flask calls `scan()` or `dashboard()` after matching
 the request URL. The shared templates and local CSS/JavaScript provide the
 green-and-white interface; preview actions are explicitly disabled on HT1.
+
+**Subsystem D — Web Application & Integration.** D provides the Flask user
+interface and application structure for the Waste Sorting Assistant:
+
+- `AppFactory` initializes Flask and registers the web routes.
+- `ScanBlueprint` provides the scanning preview. It is **designed** to use A's
+  `AIService` for classification and B's `ScanRepository` and `RuleRepository`
+  for saving scans and retrieving regional disposal rules.
+- `DashboardBlueprint` provides the dashboard preview. It is **designed** to
+  display statistics from C's `StatsCalculator` and `ChartRenderer`.
+
+For Homework Assignment 1, D demonstrates encapsulation, inheritance,
+abstraction and initialization. These A/B/C connections are **planned
+architecture only**: no scan or dashboard route calls those subsystems yet,
+so the diagram intentionally has no dependency arrows to their classes.
+`AppConfig` still shows its actual server-oriented settings; a future switch
+to SQLite's `database_path` must change the Python class and UML together.
 
 ## Team video
 
