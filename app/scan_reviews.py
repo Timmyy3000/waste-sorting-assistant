@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from flask import session
 
-from app.db import Database, ScanRepository
+from app.db import Database, MySQLDatabase
 from app.disposal import CATEGORY, STREAMS
 from app.routes.errors import UploadError
 
@@ -27,6 +27,13 @@ class ReviewRepository:
     def __init__(self, database: Database):
         self.database = database
         self.database.create_tables()
+        # CREATE TABLE IF NOT EXISTS leaves older SQLite/MySQL tables unchanged.
+        # Add this nullable metadata field without touching existing scans.
+        columns = (self.database.query("SHOW COLUMNS FROM scan_reviews") if isinstance(database, MySQLDatabase)
+                   else self.database.query("PRAGMA table_info(scan_reviews)"))
+        names = {row["Field"] if isinstance(database, MySQLDatabase) else row["name"] for row in columns}
+        if "match_score" not in names:
+            self.database.execute("ALTER TABLE scan_reviews ADD COLUMN match_score DOUBLE NULL")
 
     def reconcile_pending(self) -> None:
         """Repair older suggestions that were incorrectly counted as choices."""
@@ -37,10 +44,11 @@ class ReviewRepository:
 
     def create(self, scan_id: int, owner: str, stream: str, ai_result: dict, status: str | None = None) -> None:
         self.database.execute(
-            "INSERT INTO scan_reviews (scan_id, owner_hash, stream, status, ai_category, ai_material, ai_confidence) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO scan_reviews (scan_id, owner_hash, stream, status, ai_category, ai_material, ai_confidence, match_score) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (scan_id, owner, stream, status or ("unresolved" if stream == "unknown" else "suggested"),
-             ai_result["category"], ai_result.get("ai_material", ai_result["material"]), ai_result["confidence"]),
+             ai_result["category"], ai_result.get("ai_material", ai_result["material"]), ai_result["confidence"],
+             ai_result.get("match_score")),
         )
 
     def get_owned(self, scan_id: int, owner: str) -> dict | None:
@@ -81,13 +89,15 @@ class ReviewRepository:
         if stream not in STREAMS or stream == "unknown":
             raise UploadError("Choose a specific disposal route after identifying the item.")
         material = material.strip() if isinstance(material, str) else ""
-        if not 1 <= len(material) <= 120:
-            raise UploadError("Describe the identified item in 1–120 characters.")
+        if len(material) > 120:
+            raise UploadError("Keep the item name under 120 characters.")
         current = self.get_owned(scan_id, owner)
         if current is None:
             raise UploadError("This scan is not available in your browser session.")
         if current["version"] != expected_version:
             raise UploadError("This result changed. Reload it before correcting again.")
+        if not material:
+            material = current["material"]  # retain the displayed suggestion when confirming it
         status = "confirmed" if stream == current["stream"] and material == current["material"] and current["status"] != "corrected" else "corrected"
         now = datetime.now(timezone.utc).isoformat()
         # Update both tables and audit entry in one transaction. Conditional

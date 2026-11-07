@@ -50,8 +50,8 @@ def guidance(region: str, stream: str) -> Guidance:
         raise UploadError("Choose a supported city and disposal route.")
     source = SOURCES[region]
     common = {
-        "unknown": ("Check the city's Abfall-ABC", "Do not choose a bin from an unverified photo. Identify the item and consult the linked municipal guide."),
-        "bio": ("Biotonne", "Fruit and vegetable scraps and coffee grounds usually belong here. No plastic or compostable plastic bags. Check local rules for cooked food, meat and bones."),
+        "unknown": ("Check the city's Abfall-ABC", "Do not choose a bin from an unverified result. Identify the item and consult the linked municipal guide."),
+        "bio": ("Biotonne", "Discarded fruit, vegetable scraps and coffee grounds usually belong here. Do not throw away edible food unnecessarily. No plastic or compostable plastic bags. Check local rules for cooked food, meat and bones."),
         "rest": ("Restmülltonne", "For non-recoverable household waste such as used tissues, nappies and broken ceramics. Never put batteries or electronics here."),
         "paper": ("Papiertonne / Blaue Tonne", "Clean paper, flattened cardboard and cartons belong here. Drink cartons and greasy paper do not."),
         "glass": ("Altglascontainer", "Only non-deposit glass bottles and jars. Separate white, brown and green glass; other colours go with green. No drinking glasses, mirrors or ceramics."),
@@ -76,7 +76,9 @@ def suggestion(category: str, material: str) -> str:
         return "unknown"
     label = material.strip().lower()
     explicit = {
-        "banana peel": "bio", "apple peel": "bio", "apple core": "bio", "coffee grounds": "bio",
+        "banana peel": "bio", "banana (whole fruit or peel)": "bio",
+        "apple (whole fruit or scraps)": "bio", "apple peel": "bio",
+        "apple core": "bio", "coffee grounds": "bio",
         "cardboard": "paper", "cardboard box": "paper", "newspaper": "paper",
         "tin can": "packaging", "food tin": "packaging", "yogurt cup": "packaging",
         "used tissue": "rest", "diaper": "rest", "broken ceramic mug": "rest",

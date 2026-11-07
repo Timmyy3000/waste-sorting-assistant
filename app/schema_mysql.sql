@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS scan_reviews (
     ai_category VARCHAR(20) NOT NULL,
     ai_material VARCHAR(200) NOT NULL,
     ai_confidence DOUBLE NOT NULL,
+    match_score DOUBLE NULL,
     version INT NOT NULL DEFAULT 0,
     FOREIGN KEY (scan_id) REFERENCES scans(id)
 );

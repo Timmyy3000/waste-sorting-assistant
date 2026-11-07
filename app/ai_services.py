@@ -53,11 +53,13 @@ class AIUnavailableError(AIServiceError):
 class Classification:
     """The result of classifying one photo."""
 
-    def __init__(self, category: str, material: str, confidence: float):
+    def __init__(self, category: str, material: str, confidence: float, match_score: float | None = None):
         # The setters below validate the values.
         self.category = category
         self.material = material
         self.confidence = confidence
+        # CLIP cosine similarity is a raw ranking score, NOT confidence.
+        self.match_score = match_score
 
     @property
     def category(self) -> str:
@@ -93,12 +95,15 @@ class Classification:
         return self._confidence < CONFIDENCE_THRESHOLD
 
     def to_dict(self) -> dict:
-        return {
+        answer = {
             "category": self._category,
             "material": self._material,
             "confidence": self._confidence,
             "needs_confirmation": self.needs_confirmation,
         }
+        if self.match_score is not None:
+            answer["match_score"] = self.match_score
+        return answer
 
     def __repr__(self) -> str:
         return f"Classification({self._category!r}, {self._material!r}, {self._confidence:.2f})"

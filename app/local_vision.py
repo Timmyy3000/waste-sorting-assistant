@@ -67,23 +67,24 @@ class LocalVision:
         first, second = np.argsort(-scores)[:2]
         top = LABELS[first]
         runner = LABELS[second]
+        score = float(scores[first])
 
         # A weak or cross-category near-tie gets no category, regardless of the
         # numeric score. Never interpret CLIP similarity as probability.
         if scores[first] < 0.285:
-            return Classification("unknown", "unidentified item", 0.0)
+            return Classification("unknown", "unidentified item", 0.0, score)
         if scores[first] - scores[second] < 0.018:
             if {top[0], runner[0]} == {"whole banana", "banana peel"}:
-                return Classification("compostable", "banana (whole fruit or peel)", 0.0)
+                return Classification("compostable", "banana (whole fruit or peel)", 0.0, score)
             if {top[0], runner[0]} == {"plastic bottle", "glass bottle"}:
-                return Classification("recyclable", "bottle (material uncertain)", 0.0)
+                return Classification("recyclable", "bottle (material uncertain)", 0.0, score)
             if top[1] == runner[1] == "recyclable":
-                return Classification("recyclable", "recyclable item (material uncertain)", 0.0)
-            return Classification("unknown", "uncertain item", 0.0)
+                return Classification("recyclable", "recyclable item (material uncertain)", 0.0, score)
+            return Classification("unknown", "uncertain item", 0.0, score)
         if top[1] == "unknown":
-            return Classification("unknown", top[0], 0.0)
+            return Classification("unknown", top[0], 0.0, score)
         # 0 is a sentinel for "not calibrated", NOT low measured confidence.
-        return Classification(top[1], top[0], 0.0)
+        return Classification(top[1], top[0], 0.0, score)
 
 
 @lru_cache(maxsize=2)

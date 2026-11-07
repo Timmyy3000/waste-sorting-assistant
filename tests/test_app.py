@@ -38,7 +38,7 @@ def test_home_page_loads(client):
     assert b"Bottles and Pfand" in response.data
     assert b"Illustration of a Pfand bottle return machine" in response.data
     assert b"Altglas" in response.data
-    assert response.headers["X-App-Version"] == "2026-11-07-multimodal-v5"
+    assert response.headers["X-App-Version"] == "2026-11-07-fruit-v6"
 
 
 def test_text_upload_shows_friendly_error(client):
@@ -337,7 +337,7 @@ def test_local_image_match_suggests_category_without_asking_ki(client, monkeypat
     class FakeLocal:
         def classify(self, image_bytes):
             assert image_bytes.startswith(b"\xff\xd8\xff")
-            return Classification("recyclable", "cardboard", 0.0)
+            return Classification("recyclable", "cardboard", 0.0, 0.335)
 
     monkeypatch.setattr(local_vision, "get_local_vision", lambda path: FakeLocal())
     monkeypatch.setattr(AIClient, "call_vision", lambda *args: pytest.fail("Do not call KI:connect"))
@@ -349,37 +349,52 @@ def test_local_image_match_suggests_category_without_asking_ki(client, monkeypat
     assert result["ai_category"] == "recyclable"
     assert result["stream"] == "paper"
     assert result["status"] == "suggested"
+    assert result["match_score"] == pytest.approx(0.335)
     assert result["bin"] == "Check the city's Abfall-ABC"
-    assert b"Unverified suggestion" in client.get(f"/scan/{result['scan_id']}").data
+    page = client.get(f"/scan/{result['scan_id']}").data
+    assert b"Visual match score" in page and b"0.335 (cosine similarity; not confidence)" in page
+    assert b"Not calibrated / no score" not in page
 
 
-@pytest.mark.parametrize("description,category,stream", [
-    ("Apple", "compostable", "unknown"),
-    ("apple peel", "compostable", "bio"),
-    ("banana peel", "compostable", "bio"),
-    ("BANANA", "compostable", "unknown"),
-    ("plastic bottle", "recyclable", "unknown"),
-    ("battery", "unknown", "unknown"),
-    ("random item", "unknown", "unknown"),
+@pytest.mark.parametrize("description,category", [
+    ("plastic bottle", "recyclable"),
+    ("battery", "unknown"),
+    ("random item", "unknown"),
+    ("apple juice carton", "unknown"),
 ])
-def test_text_only_lookup_requires_confirmation(client, monkeypatch, description, category, stream):
+def test_ambiguous_text_requires_confirmation(client, monkeypatch, description, category):
     from app.ai_services import AIService
 
     monkeypatch.setattr(AIService, "classify_upload", lambda *args: pytest.fail("Text-only must not send a photo"))
     result = client.post("/api/classify", data={"region": "Berlin", "description": description}).get_json()
     assert result["ai_category"] == category
-    assert result["stream"] == stream
+    assert result["stream"] == "unknown"
     assert result["needs_confirmation"] is True
     assert result["bin"] == "Check the city's Abfall-ABC"
     assert b"Text lookup only" in client.get(f"/scan/{result['scan_id']}").data
-    assert b"Confirm my item and route" in client.get(f"/scan/{result['scan_id']}").data
+    assert b"Confirm my chosen route" in client.get(f"/scan/{result['scan_id']}").data
     assert client.get("/api/stats").get_json()["category_counts"]["unknown"] == 1
-    if description == "banana peel":
-        confirmed = client.post(f"/api/scans/{result['scan_id']}/correct", json={
-            "stream": "bio", "material": "banana peel", "version": 0,
-        }, headers={"X-CSRF-Token": result["csrf_token"]})
-        assert confirmed.get_json()["bin"] == "Biotonne"
-        assert client.get("/api/stats").get_json()["stream_counts"]["bio"] == 1
+
+
+@pytest.mark.parametrize("description", [
+    "Apple", "BANANA", "apple peel", "banana peel", "strawberry", "orange", "pear", "fruit",
+])
+def test_named_fruit_text_auto_routes_and_is_editable(client, description):
+    result = client.post("/api/classify", data={"region": "Berlin", "description": description}).get_json()
+    assert result["status"] == "auto_routed"
+    assert result["ai_category"] == result["category"] == "compostable"
+    assert result["stream"] == "bio"
+    assert result["needs_confirmation"] is False
+    assert result["bin"] == "Biotonne"
+    assert result["material"] == description
+    assert result["match_score"] is None
+    page = client.get(f"/scan/{result['scan_id']}").data
+    assert b"Auto-routed from text" in page
+    assert b"Wrong item or route? Correct it" in page
+    assert b"TEXT-BASED ROUTE" in page
+    assert b"Item name (optional)" in page
+    assert b"Visual match score" not in page
+    assert client.get("/api/stats").get_json()["stream_counts"]["bio"] == 1
 
 
 def test_photo_and_description_agreement_and_mismatch(client, monkeypatch):
@@ -430,10 +445,20 @@ def test_broad_banana_photo_does_not_validate_peel_claim(client, monkeypatch):
         "region": "Berlin", "description": "banana peel", "photo": (BytesIO(photo()), "item.png"),
     }).get_json()
     assert result["ai_category"] == "compostable"
-    assert result["stream"] == "unknown"
+    assert result["stream"] == "bio"
     assert result["category"] == "unknown"
     assert result["bin"] == "Check the city's Abfall-ABC"
     assert b"cannot confirm its exact form" in client.get(f"/scan/{result['scan_id']}").data
+    page = client.get(f"/scan/{result['scan_id']}").data
+    assert b'value="banana (whole fruit or peel)"' in page
+    assert b"Confirm suggested route" in page
+    saved = client.post(f"/api/scans/{result['scan_id']}/correct", json={
+        "stream": "bio", "material": "", "version": 0,
+    }, headers={"X-CSRF-Token": result["csrf_token"]})
+    assert saved.status_code == 200
+    assert saved.get_json()["status"] == "confirmed"
+    assert saved.get_json()["material"] == "banana (whole fruit or peel)"
+    assert saved.get_json()["bin"] == "Biotonne"
 
 
 def test_high_reported_score_is_visible_but_never_auto_assigns_bin(client, monkeypatch):
@@ -451,7 +476,7 @@ def test_high_reported_score_is_visible_but_never_auto_assigns_bin(client, monke
     assert result["status"] == "unresolved"
     assert result["bin"] == "Check the city's Abfall-ABC"
     page = client.get(f"/scan/{result['scan_id']}").data
-    assert b"99% (provider-reported; not verified accuracy)" in page
+    assert b"99% (not verified accuracy)" in page
     assert b"Could this be a Pfand bottle?" in page
     assert b"Illustration of a Pfand bottle return machine" in page
     assert client.get("/api/stats").get_json()["category_counts"]["unknown"] == 1
@@ -473,8 +498,8 @@ def test_confirmed_deposit_shows_pfand_illustration(client):
 def test_web_form_text_only_reaches_result_and_correction(client):
     response = client.post("/scan", data={"region": "Berlin", "description": "banana peel"})
     assert response.status_code == 200
-    assert b"Text lookup only" in response.data
-    assert b"No bin recommendation" in response.data
+    assert b"Auto-routed from text" in response.data
+    assert b"Biotonne" in response.data
     with client.session_transaction() as sess:
         token = sess["scan_csrf"]
     saved = client.post("/scan/1/correct", data={
@@ -485,18 +510,22 @@ def test_web_form_text_only_reaches_result_and_correction(client):
     assert client.get("/api/stats").get_json()["stream_counts"]["bio"] == 1
 
 
-def test_apple_text_can_be_confirmed_without_image(client):
+def test_apple_text_is_immediately_routed_and_can_be_corrected(client):
     response = client.post("/api/classify", data={"region": "Dortmund", "description": "Apple"})
     result = response.get_json()
     assert result["ai_category"] == "compostable"
-    assert result["stream"] == "unknown"  # A whole apple is not necessarily waste.
+    assert result["stream"] == "bio"
+    assert result["status"] == "auto_routed"
+    assert result["bin"] == "Biotonne"
     page = client.get(f"/scan/{result['scan_id']}").data
-    assert b"discarded apple or apple scraps" in page
+    assert b"discarded fruit" in page
     assert b'value="Apple"' in page
     saved = client.post(f"/api/scans/{result['scan_id']}/correct", json={
-        "stream": "bio", "material": "discarded apple", "version": 0,
+        "stream": "bio", "material": "", "version": 0,
     }, headers={"X-CSRF-Token": result["csrf_token"]})
     assert saved.status_code == 200
+    assert saved.get_json()["material"] == "Apple"
+    assert saved.get_json()["status"] == "confirmed"
     assert saved.get_json()["bin"] == "Biotonne"
     assert client.get("/api/stats").get_json()["stream_counts"]["bio"] == 1
 
@@ -542,6 +571,31 @@ def test_old_unconfirmed_suggestions_are_not_in_dashboard(client):
     assert stats["category_counts"]["unknown"] == 1
     assert stats["stream_counts"]["bio"] == 0
     assert stats["stream_counts"]["unknown"] == 1
+
+
+def test_existing_review_rows_gain_optional_score_column(tmp_path, monkeypatch):
+    import sqlite3
+    from app.db import SCHEMA_PATH
+
+    path = tmp_path / "old-reviews.db"
+    schema = SCHEMA_PATH.read_text(encoding="utf-8").replace(
+        "    match_score REAL DEFAULT NULL,        -- optional raw image/text similarity, not confidence\n", "")
+    with sqlite3.connect(path) as connection:
+        connection.executescript(schema)
+        connection.execute(
+            "INSERT INTO scans (timestamp, region, category, material, confidence) VALUES (?,?,?,?,?)",
+            ("2026-11-07T10:00:00", "Berlin", "unknown", "banana peel", 0.0),
+        )
+        connection.execute(
+            "INSERT INTO scan_reviews (scan_id, owner_hash, stream, status, ai_category, ai_material, ai_confidence) "
+            "VALUES (1,'old-owner','bio','suggested','compostable','banana peel',0)")
+    monkeypatch.setenv("DB_PATH", str(path))
+    monkeypatch.delenv("DB_HOST", raising=False)
+    app = create_app()
+    assert app.test_client().get("/api/stats").status_code == 200
+    with sqlite3.connect(path) as connection:
+        assert "match_score" in {row[1] for row in connection.execute("PRAGMA table_info(scan_reviews)")}
+        assert connection.execute("SELECT ai_material, match_score FROM scan_reviews WHERE scan_id=1").fetchone() == ("banana peel", None)
 
 
 def test_missing_local_model_does_not_fall_back_to_unverified_ki(client, monkeypatch, tmp_path):

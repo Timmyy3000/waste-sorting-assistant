@@ -1,8 +1,9 @@
 ﻿# AI-Powered Waste Sorting & Recycling Assistant
 
 Waste-sorting prototype with region-specific disposal rules and sorting
-analytics. An optional offline image matcher suggests candidate items, but
-requires human confirmation before showing a disposal bin.
+analytics. Exact text-only fruit names go to the city's Bioabfall guidance
+immediately and remain editable. The optional offline image matcher suggests
+candidate items but never assigns a bin without human confirmation.
 
 Capstone project, Compact Programming Course (Python), FH Dortmund, WS 2026/27.
 
@@ -22,8 +23,10 @@ Capstone project, Compact Programming Course (Python), FH Dortmund, WS 2026/27.
 ```mermaid
 flowchart LR
     User --> D["D: Web App (Flask)"]
-    D -->|photo| A["A: AI Services"]
-    A -->|vision and text| OpenAI[(OpenAI API)]
+    D -->|photo| A["A: optional offline matcher"]
+    D -->|text-only exact fruit| Fruit["Text item lookup"]
+    Fruit -->|Bioabfall, editable| D
+    A -->|unverified candidate| D
     D -->|save scan, get rules| B["B: Data & Rules (SQLite / MySQL)"]
     D -->|show charts| C["C: Dashboard & Analytics"]
     C -->|get_scans| B
@@ -95,19 +98,28 @@ Use **Sort without a photo** when no reliable vision service is available. You
 choose the item and disposal route, then the server shows the local guidance.
 Or use the main form with **text only** (for example, "apple" or "banana peel"),
 **photo only**, or **photo plus text**. Text uses a short exact-item vocabulary:
-"apple" gives a broad compostable candidate, not an automatic choice; "apple
-peel" and "apple core" are distinct. Unknown phrases, whole fruit, deposit
-bottles and hazardous items cannot be assigned a route from a name alone.
+exact text-only names of common fruit (including "apple", "banana", "orange"
+and "fruit") automatically show the city's **Bioabfall** guidance when they
+refer to discarded produce. This is based on what the user typed, **not** an
+AI check. Edible fruit need not be discarded, and the route remains editable.
+Unrecognised or compound names such as "apple juice carton", bottles and
+hazardous items are **not** automatically routed.
 If photo and text disagree, or the photo provider
 cannot verify the claim, the result remains unresolved. Agreement does not
 prove identity. For any unconfirmed suggestion, no bin is displayed; identify
 the item and choose the route to reveal local guidance. Text-only and combined
 inputs share the same HTML/API route, database and correction history.
-The result shows a **provider-reported score** (before the city) only if one is
-available. The local CLIP matcher and text lookup have **no calibrated confidence**.
+The local matcher shows its **raw cosine similarity** (e.g. 0.335) before the
+city; this is not a percentage, probability or confidence. A different vision
+provider's reported percentage is shown only if supplied. Text-only lookups
+have no model score and do not show a misleading empty score row. Existing
+older scans without stored similarity remain accessible but cannot gain a
+historical score without rescanning. A nullable score column is added without
+discarding existing SQLite or MySQL review records.
 Even a provider-reported 90%+ is not verified accuracy (KI:connect previously
 reported high scores for wrong objects), so it never automatically commits a bin.
-The confirmation form has a visible route selector and button; confirmed routes
+The confirmation form has a visible route selector and button; the item name
+is optional and defaults to the suggested name when left empty. Confirmed routes
 show an original illustration. An unresolved bottle can show an illustrative
 Pfand return machine solely as a reminder to check the deposit mark, **not** as
 a Pfand determination.
@@ -126,8 +138,9 @@ or access to browser-owned scans will be lost after a restart. Do not share a
 single browser session among multiple people. Public deployment additionally
 requires authentication, HTTPS, rate limits and privacy review.
 
-Dashboard figures are **counts of saved choices**, not measured real-world
-recycling or validated AI accuracy. User corrections do not retrain the model.
+Dashboard figures are **counts of confirmed choices and exact-name auto-routed
+fruit**, not measured real-world recycling or validated AI accuracy. User
+corrections do not retrain the model.
 KI:connect's photo output remains untrusted: live checks mislabeled glass as a
 banana peel. The optional **offline vision matcher** below can supply candidate
 items without sending photos to that provider.
@@ -351,6 +364,7 @@ classDiagram
         +category: str
         +material: str
         +confidence: float
+        +match_score: float?
         +needs_confirmation: bool
     }
     class AIClient {
@@ -371,6 +385,7 @@ classDiagram
         <<module>>
         +identify(description) Classification
         +agrees_with_photo(description, photo_material) bool
+        +is_named_fruit(description) bool
     }
     class AIServiceError
     class InvalidImageError
@@ -427,6 +442,7 @@ classDiagram
         +correct(scan_id, owner, stream, material, version) dict
         +stream_counts(scan_ids) dict
         +reconcile_pending()
+        +match_score: float?
     }
     class Processor {
         <<abstract>>
@@ -579,6 +595,7 @@ classDiagram
         <<module>>
         +identify(description) Classification
         +agrees_with_photo(description, photo_material) bool
+        +is_named_fruit(description) bool
     }
     class DashboardBlueprint {
         +__init__()
@@ -675,13 +692,19 @@ sequenceDiagram
             Text-->>Flow: Match or mismatch (never proof)
         end
     end
-    Flow->>DB: Save initial suggestion and browser ownership
-    Flow->>Guide: guidance(region, unknown)
-    Guide-->>User: No bin until review
-    User->>Web: Confirm or correct item + disposal route
-    Web->>DB: Save owned correction and audit entry
-    Web->>Guide: guidance(region, confirmed route)
-    Guide-->>User: Qualified city guidance + official source
+    alt Exact named fruit, text only
+        Flow->>DB: Save auto-routed Bioabfall choice + browser ownership
+        Flow->>Guide: guidance(region, bio)
+        Guide-->>User: City guidance now + visible correction
+    else Photo or other text
+        Flow->>DB: Save unverified suggestion and browser ownership
+        Flow->>Guide: guidance(region, unknown)
+        Guide-->>User: No bin until review
+        User->>Web: Confirm or correct route (name optional)
+        Web->>DB: Save owned correction and audit entry
+        Web->>Guide: guidance(region, confirmed route)
+        Guide-->>User: Qualified city guidance + official source
+    end
 ```
 
 Shared Jinja templates, local CSS and small JavaScript enhancements provide the

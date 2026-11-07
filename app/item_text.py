@@ -36,10 +36,33 @@ ITEMS = {
     "phone": ("electronic device", "unknown"),
 }
 
+# Exact produce names only: "apple juice carton" must not inherit "apple".
+FRUITS = {
+    "fruit", "fruits", "apple", "apples", "apfel", "banana", "bananas",
+    "orange", "oranges", "pear", "pears", "peach", "peaches",
+    "mango", "mangoes", "grape", "grapes", "strawberry", "strawberries",
+    "blueberry", "blueberries", "watermelon", "pineapple", "kiwi",
+    "cherry", "cherries", "plum", "plums", "lemon", "lemons",
+    "lime", "limes", "apricot", "apricots", "raspberry", "raspberries",
+    "avocado", "avocados", "whole apple", "whole banana", "banana peel",
+    "bananenschale", "apple peel", "apfelschale", "apple core",
+}
+
+
+def normalise_name(description: str) -> str:
+    return re.sub(r"\s+", " ", description.strip().casefold())
+
+
+def is_named_fruit(description: str) -> bool:
+    """Route only a known, exact text-only produce name automatically."""
+    return normalise_name(description) in FRUITS
+
 
 def identify(description: str) -> Classification:
     """Only recognise exact named items; avoid guessing from substring matches."""
-    key = re.sub(r"\s+", " ", description.strip().casefold())
+    key = normalise_name(description)
+    if key in FRUITS and key not in ITEMS:
+        return Classification("compostable", description.strip(), 0.0)
     material, category = ITEMS.get(key, (description.strip(), "unknown"))
     return Classification(category, material, 0.0)
 

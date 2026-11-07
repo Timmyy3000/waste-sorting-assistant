@@ -11,7 +11,7 @@ from app.ai_services import AIService, AIUnavailableError
 from app.db import RuleRepository, Scan, ScanRepository, create_database
 from app.disposal import CATEGORY, STREAMS, guidance, suggestion
 from app.image_uploads import normalise
-from app.item_text import agrees_with_photo, identify
+from app.item_text import agrees_with_photo, identify, is_named_fruit
 from app.routes.base import BaseBlueprint
 from app.routes.errors import UploadError
 from app.scan_reviews import ReviewRepository, csrf_token, owner_hash
@@ -76,26 +76,33 @@ class ScanWorkflow:
         stream = suggestion(result["category"], result["material"])
         result["ai_category"] = result["category"]
         result.setdefault("ai_material", result["material"])
-        # A model-only suggestion is not enough to recommend a disposal bin.
-        guide = guidance(region, "unknown")
+        result.setdefault("match_score", None)
+        # Only an exact fruit name typed without a photo can be routed directly.
+        # The result must explicitly say this is based on the user's words.
+        auto_routed = not has_photo and is_named_fruit(description)
+        if auto_routed:
+            stream = "bio"
+            result["material"] = description
+        guide = guidance(region, stream if auto_routed else "unknown")
         with create_database() as database:
             scan = Scan(
-                None, datetime.now(timezone.utc), region, "unknown",
+                None, datetime.now(timezone.utc), region, CATEGORY[stream] if auto_routed else "unknown",
                 result["material"], result["confidence"],
             )
             result["scan_id"] = ScanRepository(database).save_scan(scan)
-            ReviewRepository(database).create(result["scan_id"], owner_hash(), stream, result)
-        # A suggestion is not a saved sorting choice or a dashboard success.
-        result["category"] = "unknown"
+            ReviewRepository(database).create(result["scan_id"], owner_hash(), stream, result,
+                                               status="auto_routed" if auto_routed else None)
+        result["category"] = CATEGORY[stream] if auto_routed else "unknown"
         result["stream"] = stream
         result["stream_label"] = STREAMS[stream]
-        result["status"] = "unresolved" if stream == "unknown" else "suggested"
-        result["needs_confirmation"] = True
+        result["status"] = "auto_routed" if auto_routed else ("unresolved" if stream == "unknown" else "suggested")
+        result["needs_confirmation"] = not auto_routed
         result["version"] = 0
         result["bin"] = guide.bin
         result["instructions"] = guide.instructions
         result["source"] = guide.source
-        result["tip"] = "Review the item and verify the municipal guidance before disposal."
+        result["tip"] = ("Automatically routed from your text description. Correct it if the item differs and check local rules."
+                         if auto_routed else "Review the item and verify the municipal guidance before disposal.")
         result["csrf_token"] = csrf_token()
         return result
 
@@ -110,6 +117,7 @@ class ScanWorkflow:
             "scan_id": scan_id, "region": review["region"], "category": review["category"],
             "stream": review["stream"], "stream_label": STREAMS[review["stream"]],
             "material": review["material"], "confidence": review["confidence"],
+            "match_score": review["match_score"],
             "ai_category": review["ai_category"], "ai_material": review["ai_material"],
             "status": review["status"], "version": review["version"],
             "needs_confirmation": review["status"] in ("unresolved", "suggested"),
