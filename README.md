@@ -386,4 +386,4 @@ it did not add artificial scans to the normal application database.
 
 ## Team video
 
-[Watch the Hometask 4 team video](https://github.com/Timmyy3000/waste-sorting-assistant/releases/download/hometask-videos/Hometask4.mp4)
+[Watch the Hometask 4 team video](https://drive.google.com/file/d/1OAjr_xyPOCr0U00auRidNSN1Cz5zaOji/view?usp=drive_link)
