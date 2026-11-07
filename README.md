@@ -1,4 +1,4 @@
-﻿# AI-Powered Waste Sorting & Recycling Assistant
+# AI-Powered Waste Sorting & Recycling Assistant
 
 Photo-based household waste classification with region-specific disposal rules and recycling-rate analytics.
 
@@ -10,9 +10,9 @@ Capstone project, Compact Programming Course (Python), FH Dortmund, WS 2026/27.
 
 | Member | Subsystem | Files |
 |---|---|---|
-| Oluwatimilehin Ogunme | A - AI Services | `ai_services.py` |
+| Oluwatimilehin Ogunme | A - AI Services | `ai_services.py`, `ai_prompts.py`, `pipeline.py`, `tests/test_ai_services.py` |
 | Terkuma Caleb Lumun | B - Data & Rules | `db.py`, `schema.sql`, `schema_mysql.sql`, `data/rules_seed.csv`, `tests/test_db.py` |
-| Onyedikachi Onah | C - Dashboard & Analytics | `analytics.py` |
+| Onyedikachi Onah | C - Dashboard & Analytics | `analytics.py`, `tests/test_analytics.py` |
 | Moye Nyuysoni Glein Perry | D - Web App & Integration | `app/__init__.py`, `app/routes/`, `app/templates/`, `Dockerfile`, `README.md` |
 
 ## Architecture
@@ -60,18 +60,17 @@ People using the hosted site do not need a key. Someone running their own
 server needs their own credential or administrator-provided secret.
 
 1. Keep the key in a private file **outside this repository**, readable only by
-   the server account. The provided Desktop key has been copied to a protected
-   local application folder on the development machine; it is not in Git.
+   the server account. The key is never committed to Git.
 2. Copy `.env.example` to `.env` and set `OPENAI_API_KEY_FILE` to that file's
-   absolute path. Configure `OPENAI_BASE_URL` and `OPENAI_MODEL` as in the example.
+   absolute path. Configure `OPENAI_BASE_URL` and `OPENAI_MODEL` if needed (see `.env.example`).
 3. Start Flask normally. `AppConfig.configure_ai()` loads the secret server-side.
    An existing `OPENAI_API_KEY` environment variable takes precedence.
 
-The configured provider is KI:connect at `https://chat.kiconnect.nrw/api/v1`.
-`mistralai-mistral-small-4` was verified with an image-input request. The existing
-subsystem A client uses the OpenAI SDK's `OPENAI_BASE_URL` environment support;
-its implementation is unchanged. Uploaded photos go to this provider for
-classification; only classification records, not photo files, are stored here.
+The app uses the **OpenAI API** by default (model `gpt-6-luna`, set with `OPENAI_MODEL`).
+Because subsystem A uses the official OpenAI SDK, `OPENAI_BASE_URL` can optionally point it
+at another OpenAI-compatible provider such as KI:connect (`https://chat.kiconnect.nrw/api/v1`).
+Uploaded photos go to the provider for classification; only classification records,
+not photo files, are stored here.
 
 ### Docker with MySQL
 
@@ -386,4 +385,4 @@ it did not add artificial scans to the normal application database.
 
 ## Team video
 
-_Link added with each homework assignment._
+[Watch the Hometask 4 team video](https://github.com/Timmyy3000/waste-sorting-assistant/releases/download/hometask-videos/Hometask4.mp4)
