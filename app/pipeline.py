@@ -20,6 +20,12 @@ class ScanEvent:
     category: str
     material: str
     confidence: float
+    # Optical-sorter payload: visual tags and bounding box (x, y, width, height in pixels).
+    tags: tuple[str, ...] = ()
+    bbox: tuple[int, int, int, int] | None = None
+    # Filled in by MaterialRouter: material code (e.g. PET, HDPE, ALU) and conveyor route.
+    material_code: str = ""
+    route: str = ""
 
 
 class Source(ABC):

@@ -55,7 +55,22 @@ pytest                          # run the tests
 
 ## Branches
 
-Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworkassignment002`, …
+Each homework assignment has its own branch: `Homeassignment1`, `HomeworkAssignment2`,
+`HomeworkAssignment3`, `HomeworkAssignment4` (the earlier names `Homeworkassignment001`–`004` point to the same work).
+
+### HT2 pipeline (optical sorter stream)
+
+```
+SimulatedScanSource | ConfidenceFilter | MaterialRouter | RegionFilter | CategoryTally | RunningRecyclingRateTracker | DbSink
+```
+
+1. **ConfidenceFilter** (A) drops predictions below 60 % confidence.
+2. **MaterialRouter** (A) turns visual tags and bounding boxes into a material code
+   (PET, HDPE, ALU, GLASS, PAPER, ORGANIC, OTHER) and a conveyor route (`LANE-1-PLASTIC` …,
+   `MANUAL` for items too big for a lane).
+3. C's processors filter by region and compute statistics; B's `DbSink` saves each event.
+
+Run it with `python demo_pipeline.py`.
 
 ## UML class diagrams
 
@@ -90,6 +105,20 @@ classDiagram
         +category: str
         +material: str
         +confidence: float
+        +tags: tuple
+        +bbox: tuple
+        +material_code: str
+        +route: str
+    }
+    class ConfidenceFilter {
+        +min_confidence: float
+        +dropped: int
+        +process(events) Iterator
+    }
+    class MaterialRouter {
+        +max_box_size: int
+        +material_code(tags) str
+        +process(events) Iterator
     }
     class Source {
         <<abstract>>
@@ -103,6 +132,8 @@ classDiagram
     Source <|-- SimulatedScanSource
     Source ..> ScanEvent : yields
     Processor ..> ScanEvent : processes
+    Processor <|-- ConfidenceFilter
+    Processor <|-- MaterialRouter
     AIService o-- AIClient : calls
     AIService ..> Classification : returns
 ```

@@ -10,11 +10,12 @@ import logging
 import os
 import random
 import time
+from dataclasses import replace
 from datetime import datetime
 from typing import Iterable, Iterator
 
 from app.ai_prompts import CLASSIFY_PROMPT, TIP_PROMPT
-from app.pipeline import ScanEvent, Source
+from app.pipeline import Processor, ScanEvent, Source
 
 logger = logging.getLogger(__name__)
 
@@ -236,20 +237,128 @@ class SimulatedScanSource(Source):
             raise StopIteration
         self._produced += 1
         category = self._random.choice(CATEGORIES)
+        material = self._random.choice(SAMPLE_MATERIALS[category])
+        size = self._random.randint(40, 400)
         return ScanEvent(
             timestamp=datetime.now(),
             region=self._random.choice(self._regions),
             category=category,
-            material=self._random.choice(SAMPLE_MATERIALS[category]),
+            material=material,
             confidence=round(self._random.uniform(0.4, 1.0), 2),
+            tags=SAMPLE_TAGS[material],
+            bbox=(self._random.randint(0, 600), self._random.randint(0, 400), size, size),
         )
 
 
+class ConfidenceFilter(Processor):
+    """Drops low-confidence predictions so they never reach the sorter.
+
+    Polymorphism: it is a Processor like every other step, so the pipeline runner
+    can chain it with `|` without knowing what it does.
+    """
+
+    def __init__(self, min_confidence: float = CONFIDENCE_THRESHOLD):
+        self.min_confidence = min_confidence  # goes through the setter check
+        self._dropped = 0
+
+    @property
+    def min_confidence(self) -> float:
+        return self._min_confidence
+
+    @min_confidence.setter
+    def min_confidence(self, value: float) -> None:
+        if not 0 <= value <= 1:
+            raise ValueError(f"min_confidence must be between 0 and 1, got {value}")
+        self._min_confidence = value
+
+    @property
+    def dropped(self) -> int:
+        """How many events were filtered out so far."""
+        return self._dropped
+
+    def process(self, events: Iterator[ScanEvent]) -> Iterator[ScanEvent]:
+        for event in events:  # generator: one event at a time, nothing is stored
+            if event.confidence >= self._min_confidence:
+                yield event
+            else:
+                self._dropped += 1
+
+
+class MaterialRouter(Processor):
+    """Turns visual tags and bounding boxes into a material code and a conveyor route.
+
+    Tags such as ("bottle", "clear plastic") become PET; the route tells the
+    conveyor which lane to push the item to. Items too big for a lane go to MANUAL.
+    """
+
+    def __init__(self, max_box_size: int = 300):
+        self._max_box_size = max_box_size
+
+    @property
+    def max_box_size(self) -> int:
+        return self._max_box_size
+
+    @max_box_size.setter
+    def max_box_size(self, value: int) -> None:
+        if value <= 0:
+            raise ValueError("max_box_size must be positive")
+        self._max_box_size = value
+
+    @staticmethod
+    def material_code(tags: tuple[str, ...]) -> str:
+        """First matching tag wins; unknown tags give OTHER."""
+        for tag in tags:
+            if tag in TAG_TO_MATERIAL_CODE:
+                return TAG_TO_MATERIAL_CODE[tag]
+        return "OTHER"
+
+    def process(self, events: Iterator[ScanEvent]) -> Iterator[ScanEvent]:
+        for event in events:
+            code = self.material_code(event.tags)
+            too_big = event.bbox is not None and max(event.bbox[2], event.bbox[3]) > self._max_box_size
+            route = "MANUAL" if too_big else MATERIAL_CODE_TO_ROUTE.get(code, "LANE-RESIDUAL")
+            yield replace(event, material_code=code, route=route)
+
+
 SAMPLE_MATERIALS = {
-    "recyclable": ("plastic bottle", "tin can", "newspaper", "glass jar"),
+    "recyclable": ("plastic bottle", "milk jug", "tin can", "newspaper", "glass jar"),
     "compostable": ("banana peel", "coffee grounds", "apple core"),
     "landfill": ("chip bag", "broken mug", "used tissue"),
     "unknown": ("unclear item",),
+}
+
+# Visual tags an optical sorter would report for each sample material.
+SAMPLE_TAGS = {
+    "plastic bottle": ("bottle", "clear plastic"),
+    "milk jug": ("jug", "milk jug"),
+    "tin can": ("can", "aluminium"),
+    "newspaper": ("paper", "printed"),
+    "glass jar": ("jar", "glass"),
+    "banana peel": ("peel", "organic"),
+    "coffee grounds": ("grounds", "organic"),
+    "apple core": ("fruit", "organic"),
+    "chip bag": ("bag", "foil"),
+    "broken mug": ("ceramic",),
+    "used tissue": ("tissue",),
+    "unclear item": (),
+}
+
+TAG_TO_MATERIAL_CODE = {
+    "clear plastic": "PET",
+    "milk jug": "HDPE",
+    "aluminium": "ALU",
+    "glass": "GLASS",
+    "paper": "PAPER",
+    "organic": "ORGANIC",
+}
+
+MATERIAL_CODE_TO_ROUTE = {
+    "PET": "LANE-1-PLASTIC",
+    "HDPE": "LANE-1-PLASTIC",
+    "ALU": "LANE-2-METAL",
+    "GLASS": "LANE-3-GLASS",
+    "PAPER": "LANE-4-PAPER",
+    "ORGANIC": "LANE-5-ORGANIC",
 }
 
 
