@@ -24,8 +24,8 @@ services:
       DB_PASSWORD: waste_password
       DB_NAME: waste_sorting
       OPENAI_API_KEY_FILE: /run/secrets/ai_api_key
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://chat.kiconnect.nrw/api/v1}
-      OPENAI_MODEL: ${OPENAI_MODEL:-mistralai-mistral-small-4}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-luna}
     secrets:
       - ai_api_key
     depends_on:
