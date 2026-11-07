@@ -128,18 +128,14 @@ classDiagram
         +instructions: str
     }
     class Database {
-        +schema_path: Path
         +path: str
         +is_connected: bool
         +connection
         +connect()
         +close()
         +create_tables()
-        +execute(sql, params) int
-        +execute_all(statements) int
-        +query(sql, params) list~dict~
-        #_open_connection()
-        #_convert_sql(sql) str
+        +__enter__() Database
+        +__exit__()
     }
     class BaseRepository {
         <<abstract>>
