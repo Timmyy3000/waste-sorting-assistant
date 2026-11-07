@@ -336,4 +336,4 @@ AppConfig, route groups in BaseBlueprint, and the processor list in Pipeline.
 
 ## Team video
 
-[Watch the Hometask 2 team video](https://github.com/Timmyy3000/waste-sorting-assistant/releases/download/hometask-videos/Hometask2.mp4)
+[Watch the Hometask 2 team video](https://drive.google.com/file/d/1uK9Mx_0D22MKbzOaKmJLItkhWWotLlle/view?usp=drive_link)
