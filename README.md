@@ -95,7 +95,7 @@ quota, and managed secrets. No public hosting has been provisioned by this repo.
 ## Branches
 
 Each homework assignment has its own branch: `Homeassignment1`, `HomeworkAssignment2`, `HomeworkAssignment3`,
-`HomeworkAssignment4` (the earlier names `Homeworkassignment001`–`004` point to the same work).
+`HomeworkAssignment4`.
 `main` is the final integrated application. The homework branches preserve their
 assignment-specific versions; contributor branches are removed only after their
 commits are verified as included in the matching homework branch.
