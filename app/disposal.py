@@ -76,7 +76,7 @@ def suggestion(category: str, material: str) -> str:
         return "unknown"
     label = material.strip().lower()
     explicit = {
-        "banana peel": "bio", "apple core": "bio", "coffee grounds": "bio",
+        "banana peel": "bio", "apple peel": "bio", "apple core": "bio", "coffee grounds": "bio",
         "cardboard": "paper", "cardboard box": "paper", "newspaper": "paper",
         "tin can": "packaging", "food tin": "packaging", "yogurt cup": "packaging",
         "used tissue": "rest", "diaper": "rest", "broken ceramic mug": "rest",

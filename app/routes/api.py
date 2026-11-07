@@ -26,7 +26,8 @@ class ApiBlueprint(BaseBlueprint):
 
     def classify(self) -> Response:
         """Classify and save an upload, then return the local rule and tip."""
-        result = ScanWorkflow().submit(request.files.get("photo"), request.form.get("region", ""))
+        result = ScanWorkflow().submit(request.files.get("photo"), request.form.get("region", ""),
+                                       request.form.get("description", ""))
         return jsonify(result)
 
     def correct(self, scan_id: int) -> Response:

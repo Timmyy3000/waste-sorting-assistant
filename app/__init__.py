@@ -12,7 +12,7 @@ from app.routes.base import BaseBlueprint
 from app.routes.dashboard import DashboardBlueprint
 from app.routes.errors import UploadError, WebAppError
 from app.routes.scan import ScanBlueprint, ScanWorkflow
-from app.scan_reviews import csrf_token
+from app.scan_reviews import ReviewRepository, csrf_token
 from app.disposal import STREAMS
 
 
@@ -31,7 +31,7 @@ class AppFactory:
         self.config.configure_ai()
         app.config["WEB_INTEGRATED"] = True
         app.config["LOCAL_VISION_ENABLED"] = bool(os.getenv("LOCAL_VISION_MODEL_DIR"))
-        app.config["APP_VERSION"] = "2026-11-06-vision-v3"
+        app.config["APP_VERSION"] = "2026-11-07-multimodal-v5"
         app.config["MAX_CONTENT_LENGTH"] = self.config.upload_limit
         app.config["ALLOWED_TYPES"] = self.config.allowed_types
         app.config["DB_HOST"] = self.config.database_host
@@ -46,6 +46,7 @@ class AppFactory:
 
         with create_database() as database:
             RuleRepository(database).load_from_csv()
+            ReviewRepository(database).reconcile_pending()
 
         route_groups: list[BaseBlueprint] = [
             ScanBlueprint(),

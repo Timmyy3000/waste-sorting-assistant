@@ -7,7 +7,9 @@ services:
       MYSQL_PASSWORD: waste_password
       MYSQL_ROOT_PASSWORD: root_password
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      # A TCP query with the application credentials waits for the *final*
+      # server and database, not MySQL's socket-only first-run init server.
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_PASSWORD}\" mysql --protocol=TCP -h 127.0.0.1 -u \"$${MYSQL_USER}\" \"$${MYSQL_DATABASE}\" -Nse 'SELECT 1' >/dev/null 2>&1"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -16,6 +18,7 @@ services:
 
   web:
     build: .
+    restart: on-failure
     ports:
       - "5000:5000"
     environment:

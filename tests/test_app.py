@@ -38,7 +38,7 @@ def test_home_page_loads(client):
     assert b"Bottles and Pfand" in response.data
     assert b"Illustration of a Pfand bottle return machine" in response.data
     assert b"Altglas" in response.data
-    assert response.headers["X-App-Version"] == "2026-11-06-vision-v3"
+    assert response.headers["X-App-Version"] == "2026-11-07-multimodal-v5"
 
 
 def test_text_upload_shows_friendly_error(client):
@@ -172,7 +172,7 @@ def test_unverified_provider_never_guesses_a_bin(client, monkeypatch, path):
     assert response.status_code == 200
     if path == "/scan":
         assert b"Identification is unavailable" in response.data
-        assert b"Not calibrated / not verified" in response.data
+        assert b"Unverified suggestion" in response.data
         assert b"<h2>Restm" not in response.data
     else:
         result = response.get_json()
@@ -315,8 +315,9 @@ def test_ai_suggestion_shows_no_bin_until_confirmed(client, monkeypatch):
     assert first["status"] == "suggested"
     assert first["needs_confirmation"] is True
     assert first["bin"] == "Check the city's Abfall-ABC"
+    assert client.get("/api/stats").get_json()["stream_counts"]["bio"] == 0
     page = client.get(f"/scan/{first['scan_id']}")
-    assert b"Wrong result? Correct it" in page.data
+    assert b"Confirm a route or correct this result" in page.data
     assert b"No bin recommendation" in page.data
     confirmed = client.post(f"/api/scans/{first['scan_id']}/correct", json={
         "stream": "bio", "material": "banana peel", "version": 0,
@@ -349,7 +350,194 @@ def test_local_image_match_suggests_category_without_asking_ki(client, monkeypat
     assert result["stream"] == "paper"
     assert result["status"] == "suggested"
     assert result["bin"] == "Check the city's Abfall-ABC"
-    assert b"Not calibrated / not verified" in client.get(f"/scan/{result['scan_id']}").data
+    assert b"Unverified suggestion" in client.get(f"/scan/{result['scan_id']}").data
+
+
+@pytest.mark.parametrize("description,category,stream", [
+    ("Apple", "compostable", "unknown"),
+    ("apple peel", "compostable", "bio"),
+    ("banana peel", "compostable", "bio"),
+    ("BANANA", "compostable", "unknown"),
+    ("plastic bottle", "recyclable", "unknown"),
+    ("battery", "unknown", "unknown"),
+    ("random item", "unknown", "unknown"),
+])
+def test_text_only_lookup_requires_confirmation(client, monkeypatch, description, category, stream):
+    from app.ai_services import AIService
+
+    monkeypatch.setattr(AIService, "classify_upload", lambda *args: pytest.fail("Text-only must not send a photo"))
+    result = client.post("/api/classify", data={"region": "Berlin", "description": description}).get_json()
+    assert result["ai_category"] == category
+    assert result["stream"] == stream
+    assert result["needs_confirmation"] is True
+    assert result["bin"] == "Check the city's Abfall-ABC"
+    assert b"Text lookup only" in client.get(f"/scan/{result['scan_id']}").data
+    assert b"Confirm my item and route" in client.get(f"/scan/{result['scan_id']}").data
+    assert client.get("/api/stats").get_json()["category_counts"]["unknown"] == 1
+    if description == "banana peel":
+        confirmed = client.post(f"/api/scans/{result['scan_id']}/correct", json={
+            "stream": "bio", "material": "banana peel", "version": 0,
+        }, headers={"X-CSRF-Token": result["csrf_token"]})
+        assert confirmed.get_json()["bin"] == "Biotonne"
+        assert client.get("/api/stats").get_json()["stream_counts"]["bio"] == 1
+
+
+def test_photo_and_description_agreement_and_mismatch(client, monkeypatch):
+    from app.ai_services import AIService
+
+    monkeypatch.setattr(AIService, "classify_upload", lambda self, image, region: {
+        "category": "compostable", "material": "banana peel", "confidence": 0,
+        "region": region,
+    })
+    matched = client.post("/api/classify", data={
+        "region": "Dortmund", "description": "banana peel", "photo": (BytesIO(photo()), "item.png"),
+    }).get_json()
+    assert matched["stream"] == "bio"
+    assert matched["status"] == "suggested"
+    assert matched["bin"] == "Check the city's Abfall-ABC"
+    assert b"Photo and description appear consistent" in client.get(f"/scan/{matched['scan_id']}").data
+    mismatch = client.post("/api/classify", data={
+        "region": "Dortmund", "description": "glass bottle", "photo": (BytesIO(photo()), "item.png"),
+    }).get_json()
+    assert mismatch["stream"] == "unknown"
+    assert mismatch["ai_category"] == "unknown"
+    assert mismatch["material"] == "glass bottle"
+    assert b"did not agree" in client.get(f"/scan/{mismatch['scan_id']}").data
+    assert client.get("/api/stats").get_json()["category_counts"]["unknown"] == 2
+
+
+def test_photo_cannot_verify_claim_when_vision_disabled(client, monkeypatch):
+    from app.ai_services import AIClient
+
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://chat.kiconnect.nrw/api/v1")
+    monkeypatch.setattr(AIClient, "call_vision", lambda *args: pytest.fail("No unsafe provider call"))
+    result = client.post("/api/classify", data={
+        "region": "Berlin", "description": "banana peel", "photo": (BytesIO(photo()), "item.png"),
+    }).get_json()
+    assert result["status"] == "unresolved"
+    assert result["ai_category"] == "unknown"
+    assert result["bin"] == "Check the city's Abfall-ABC"
+
+
+def test_broad_banana_photo_does_not_validate_peel_claim(client, monkeypatch):
+    from app.ai_services import AIService
+
+    monkeypatch.setattr(AIService, "classify_upload", lambda self, image, region: {
+        "category": "compostable", "material": "banana (whole fruit or peel)",
+        "confidence": 0, "region": region,
+    })
+    result = client.post("/api/classify", data={
+        "region": "Berlin", "description": "banana peel", "photo": (BytesIO(photo()), "item.png"),
+    }).get_json()
+    assert result["ai_category"] == "compostable"
+    assert result["stream"] == "unknown"
+    assert result["category"] == "unknown"
+    assert result["bin"] == "Check the city's Abfall-ABC"
+    assert b"cannot confirm its exact form" in client.get(f"/scan/{result['scan_id']}").data
+
+
+def test_high_reported_score_is_visible_but_never_auto_assigns_bin(client, monkeypatch):
+    from app.ai_services import AIService
+
+    monkeypatch.setattr(AIService, "classify_upload", lambda self, image, region: {
+        "category": "recyclable", "material": "plastic bottle", "confidence": 0.99,
+        "region": region,
+    })
+    result = client.post("/api/classify", data={
+        "region": "Berlin", "photo": (BytesIO(photo()), "bottle.png"),
+    }).get_json()
+    assert result["ai_category"] == "recyclable"
+    assert result["category"] == "unknown"
+    assert result["status"] == "unresolved"
+    assert result["bin"] == "Check the city's Abfall-ABC"
+    page = client.get(f"/scan/{result['scan_id']}").data
+    assert b"99% (provider-reported; not verified accuracy)" in page
+    assert b"Could this be a Pfand bottle?" in page
+    assert b"Illustration of a Pfand bottle return machine" in page
+    assert client.get("/api/stats").get_json()["category_counts"]["unknown"] == 1
+
+
+def test_confirmed_deposit_shows_pfand_illustration(client):
+    created = client.post("/api/classify", data={
+        "region": "Berlin", "description": "plastic bottle",
+    }).get_json()
+    response = client.post(f"/api/scans/{created['scan_id']}/correct", json={
+        "stream": "deposit", "material": "Pfand plastic bottle", "version": 0,
+    }, headers={"X-CSRF-Token": created["csrf_token"]})
+    assert response.status_code == 200
+    page = client.get(f"/scan/{created['scan_id']}").data
+    assert b"Pfand return point" in page
+    assert b"Illustration of a Pfand bottle return machine" in page
+
+
+def test_web_form_text_only_reaches_result_and_correction(client):
+    response = client.post("/scan", data={"region": "Berlin", "description": "banana peel"})
+    assert response.status_code == 200
+    assert b"Text lookup only" in response.data
+    assert b"No bin recommendation" in response.data
+    with client.session_transaction() as sess:
+        token = sess["scan_csrf"]
+    saved = client.post("/scan/1/correct", data={
+        "stream": "bio", "material": "banana peel", "version": 0, "csrf_token": token,
+    })
+    assert saved.status_code == 303
+    assert b"Biotonne" in client.get(saved.headers["Location"]).data
+    assert client.get("/api/stats").get_json()["stream_counts"]["bio"] == 1
+
+
+def test_apple_text_can_be_confirmed_without_image(client):
+    response = client.post("/api/classify", data={"region": "Dortmund", "description": "Apple"})
+    result = response.get_json()
+    assert result["ai_category"] == "compostable"
+    assert result["stream"] == "unknown"  # A whole apple is not necessarily waste.
+    page = client.get(f"/scan/{result['scan_id']}").data
+    assert b"discarded apple or apple scraps" in page
+    assert b'value="Apple"' in page
+    saved = client.post(f"/api/scans/{result['scan_id']}/correct", json={
+        "stream": "bio", "material": "discarded apple", "version": 0,
+    }, headers={"X-CSRF-Token": result["csrf_token"]})
+    assert saved.status_code == 200
+    assert saved.get_json()["bin"] == "Biotonne"
+    assert client.get("/api/stats").get_json()["stream_counts"]["bio"] == 1
+
+
+@pytest.mark.parametrize("data", [
+    {"region": "Berlin", "description": "   "},
+    {"region": "Berlin", "description": "x" * 121},
+    {"region": "Berlin", "description": "banana\npeel"},
+    {"region": "Wrong", "description": "banana peel"},
+])
+def test_description_validation(client, data):
+    assert client.post("/api/classify", data=data).status_code == 400
+
+
+def test_compose_waits_for_real_mysql_tcp_query():
+    from pathlib import Path
+    compose = (Path(__file__).resolve().parent.parent / "docker-compose.yml").read_text()
+    assert "mysqladmin" not in compose
+    assert "--protocol=TCP -h 127.0.0.1" in compose
+    assert "SELECT 1" in compose
+    assert 'restart: on-failure' in compose
+
+
+def test_old_unconfirmed_suggestions_are_not_in_dashboard(client):
+    from datetime import datetime
+    from app.db import Scan, ScanRepository, create_database
+    from app.scan_reviews import ReviewRepository
+
+    with client.session_transaction() as sess:
+        sess["scan_owner"] = "test-owner"
+    with create_database() as database:
+        scan_id = ScanRepository(database).save_scan(
+            Scan(None, datetime(2026, 11, 7), "Berlin", "compostable", "banana peel", 0.7))
+        ReviewRepository(database).create(scan_id, "test-owner", "bio", {
+            "category": "compostable", "material": "banana peel", "confidence": 0.7,
+        })
+        ReviewRepository(database).reconcile_pending()
+    stats = client.get("/api/stats").get_json()
+    assert stats["category_counts"]["unknown"] == 1
+    assert stats["stream_counts"]["bio"] == 0
+    assert stats["stream_counts"]["unknown"] == 1
 
 
 def test_missing_local_model_does_not_fall_back_to_unverified_ki(client, monkeypatch, tmp_path):

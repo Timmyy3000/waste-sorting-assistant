@@ -11,6 +11,7 @@ from app.ai_services import AIService, AIUnavailableError
 from app.db import RuleRepository, Scan, ScanRepository, create_database
 from app.disposal import CATEGORY, STREAMS, guidance, suggestion
 from app.image_uploads import normalise
+from app.item_text import agrees_with_photo, identify
 from app.routes.base import BaseBlueprint
 from app.routes.errors import UploadError
 from app.scan_reviews import ReviewRepository, csrf_token, owner_hash
@@ -27,38 +28,65 @@ class ScanWorkflow:
         with create_database() as database:
             return RuleRepository(database).get_regions()
 
-    def submit(self, upload: FileStorage | None, region: str) -> dict:
-        """Return a saved classification with its local disposal instructions."""
-        region = region.strip()
-        if upload is None or not upload.filename or not region:
-            raise UploadError("Choose a photo and region.")
-        extension = upload.filename.rsplit(".", 1)[-1].lower() if "." in upload.filename else ""
-        if extension not in current_app.config["ALLOWED_TYPES"]:
-            raise UploadError("Choose a supported photo (JPG, PNG, WebP, GIF, BMP, TIFF, AVIF or HEIC).")
+    def submit(self, upload: FileStorage | None, region: str, description: str = "") -> dict:
+        """Save a text, photo or combined unverified suggestion for confirmation."""
+        region = region.strip() if isinstance(region, str) else ""
+        description = description.strip() if isinstance(description, str) else ""
+        has_photo = upload is not None and bool(upload.filename)
+        if not region or (not has_photo and not description):
+            raise UploadError("Choose a city and provide a photo and/or item description.")
+        if len(description) > 120 or any(ord(char) < 32 for char in description):
+            raise UploadError("Describe the item in at most 120 characters, without control characters.")
         if region not in self.get_regions():
             raise UploadError("Choose a region from the list so we can find its local rules.")
-        image_bytes = upload.read(current_app.config["MAX_CONTENT_LENGTH"] + 1)
-        if not image_bytes:
-            raise UploadError("The photo is empty. Please choose another file.")
-        image_bytes = normalise(image_bytes)
-
-        try:
-            result = self._service.classify_upload(image_bytes, region)
-        except (ValueError, TypeError, KeyError):
-            raise AIUnavailableError("We could not interpret the AI response. Please try another photo.") from None
+        if has_photo:
+            extension = upload.filename.rsplit(".", 1)[-1].lower() if "." in upload.filename else ""
+            if extension not in current_app.config["ALLOWED_TYPES"]:
+                raise UploadError("Choose a supported photo (JPG, PNG, WebP, GIF, BMP, TIFF, AVIF or HEIC).")
+            image_bytes = upload.read(current_app.config["MAX_CONTENT_LENGTH"] + 1)
+            if not image_bytes:
+                raise UploadError("The photo is empty. Please choose another file.")
+            image_bytes = normalise(image_bytes)
+            try:
+                result = self._service.classify_upload(image_bytes, region)
+            except (ValueError, TypeError, KeyError):
+                raise AIUnavailableError("We could not interpret the AI response. Please try another photo.") from None
+            if description:
+                photo_material = result["material"]
+                text_item = identify(description)
+                if (result["category"] != "unknown" and text_item.category != "unknown"
+                        and result["category"] == text_item.category
+                        and agrees_with_photo(description, photo_material)):
+                    result["ai_material"] = (
+                        f"photo only supports broad item: {photo_material}"
+                        if text_item.material != photo_material
+                        else f"photo + text agree: {photo_material}"
+                    )
+                else:
+                    result["category"] = "unknown"
+                    result["material"] = description
+                    result["confidence"] = 0.0
+                    result["ai_material"] = f"photo could not verify '{description}' (photo suggested: {photo_material})"
+        else:
+            item = identify(description)
+            result = item.to_dict()
+            result["material"] = item.material
+            result["ai_material"] = f"text only: {description}"
+            result["region"] = region
         stream = suggestion(result["category"], result["material"])
         result["ai_category"] = result["category"]
-        result["ai_material"] = result["material"]
+        result.setdefault("ai_material", result["material"])
         # A model-only suggestion is not enough to recommend a disposal bin.
         guide = guidance(region, "unknown")
         with create_database() as database:
             scan = Scan(
-                None, datetime.now(timezone.utc), region, CATEGORY[stream],
+                None, datetime.now(timezone.utc), region, "unknown",
                 result["material"], result["confidence"],
             )
             result["scan_id"] = ScanRepository(database).save_scan(scan)
             ReviewRepository(database).create(result["scan_id"], owner_hash(), stream, result)
-        result["category"] = CATEGORY[stream]
+        # A suggestion is not a saved sorting choice or a dashboard success.
+        result["category"] = "unknown"
         result["stream"] = stream
         result["stream_label"] = STREAMS[stream]
         result["status"] = "unresolved" if stream == "unknown" else "suggested"
@@ -136,7 +164,8 @@ class ScanBlueprint(BaseBlueprint):
         if request.method == "GET":
             return render_template("scan.html", regions=workflow.get_regions(),
                                    streams=STREAMS, csrf_token=csrf_token())
-        result = workflow.submit(request.files.get("photo"), request.form.get("region", ""))
+        result = workflow.submit(request.files.get("photo"), request.form.get("region", ""),
+                                 request.form.get("description", ""))
         return render_template("result.html", result=result, streams=STREAMS)
 
     def result_page(self, scan_id: int) -> str:

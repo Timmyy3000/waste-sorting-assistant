@@ -1,6 +1,7 @@
 /* Upload previews and progress feedback. The API key never enters this script. */
 document.querySelectorAll('[data-scan-form]').forEach((form) => {
   const input = form.querySelector('input[type="file"]');
+  const description = form.querySelector('input[name="description"]');
   const zone = form.querySelector('[data-drop-zone]');
   const error = form.querySelector('[data-upload-error]');
   const placeholder = form.querySelector('[data-drop-placeholder]');
@@ -56,7 +57,14 @@ document.querySelectorAll('[data-scan-form]').forEach((form) => {
     showFile();
     input.focus();
   });
-  form.addEventListener('submit', () => {
+  form.addEventListener('submit', (event) => {
+    if (!input.files.length && !description.value.trim()) {
+      event.preventDefault();
+      error.textContent = 'Add a photo and/or describe the item.';
+      error.hidden = false;
+      description.focus();
+      return;
+    }
     const button = form.querySelector('[data-submit-button]');
     button.disabled = true;
     form.setAttribute('aria-busy', 'true');

@@ -93,6 +93,24 @@ complete Abfall-ABC and cannot guarantee correct disposal for every item.
 
 Use **Sort without a photo** when no reliable vision service is available. You
 choose the item and disposal route, then the server shows the local guidance.
+Or use the main form with **text only** (for example, "apple" or "banana peel"),
+**photo only**, or **photo plus text**. Text uses a short exact-item vocabulary:
+"apple" gives a broad compostable candidate, not an automatic choice; "apple
+peel" and "apple core" are distinct. Unknown phrases, whole fruit, deposit
+bottles and hazardous items cannot be assigned a route from a name alone.
+If photo and text disagree, or the photo provider
+cannot verify the claim, the result remains unresolved. Agreement does not
+prove identity. For any unconfirmed suggestion, no bin is displayed; identify
+the item and choose the route to reveal local guidance. Text-only and combined
+inputs share the same HTML/API route, database and correction history.
+The result shows a **provider-reported score** (before the city) only if one is
+available. The local CLIP matcher and text lookup have **no calibrated confidence**.
+Even a provider-reported 90%+ is not verified accuracy (KI:connect previously
+reported high scores for wrong objects), so it never automatically commits a bin.
+The confirmation form has a visible route selector and button; confirmed routes
+show an original illustration. An unresolved bottle can show an illustrative
+Pfand return machine solely as a reminder to check the deposit mark, **not** as
+a Pfand determination.
 After a scan, use **Correct or confirm this result** to identify the item and
 choose the appropriate route. The database preserves the initial model response
 and an append-only correction log, while the dashboard and JSON statistics use
@@ -154,6 +172,17 @@ correct disposal (notably for Pfand bottles and mixed/special waste).
 
 ### Docker with MySQL
 
+On Windows, Docker Desktop's official installer supports a custom
+`--installation-dir=D:\DockerDesktop` and
+`--wsl-default-data-root=D:\DockerData` (WSL 2). Install and verify those
+locations **before** pulling the MySQL image; otherwise its image/volume may
+consume C:. An existing WSL distribution, Windows system files and some user
+configuration may still live on C:. The project does not require a separate
+host MySQL installation: the `mysql:8.4` container supplies MySQL and stores
+its data in Docker's volume on the configured Docker data disk. Keep the
+existing `data/waste.db` if migrating from local SQLite; Docker's MySQL starts
+with an independent database and does not import those records automatically.
+
 With the same local `.env` and external key file, run:
 
 ```bash
@@ -166,6 +195,13 @@ Compose mounts the key as `/run/secrets/ai_api_key`; it is not baked into the
 image. `.dockerignore` excludes local configuration, databases and credential
 files. A Docker Compose file secret is a read-only file mount, not an encrypted
 vault: the host administrator still controls it. Never commit the key or `.env`.
+MySQL's healthcheck performs an authenticated TCP query against the application
+database, rather than accepting its socket-only initialization server. Web also
+restarts on failure. For a non-destructive fresh-start check, use a separate
+Compose project name and volume (e.g. `docker compose -p waste_fresh up --build`);
+do not run `down -v` on a project with scans you want to retain. Compose does
+not include offline model weights: mount an external model directory and set
+`LOCAL_VISION_MODEL_DIR` in the web container to enable photo matching there.
 
 The supplied Flask command is a **local development server**, not a public
 deployment. To share the app publicly, deploy the backend behind HTTPS with a
@@ -182,7 +218,127 @@ commits are verified as included in the matching homework branch.
 ## UML class diagrams
 
 The diagrams follow the team presentation order A, B, C, then D.
-Only classes implemented on this assignment branch are shown.
+The historical homework branches remain unchanged. The milestone diagrams
+below show the classes added or extended at each assignment; the detailed
+diagrams after them describe integrated `main`. Final-only modules are **not**
+retroactively attributed to a homework submission.
+
+### Homeworkassignment001 · core classes (A, B, C, D)
+
+```mermaid
+classDiagram
+    class AIClient
+    class AIService
+    class Classification
+    class Database
+    class BaseRepository
+    class ScanRepository
+    class RuleRepository
+    class Scan
+    class RecyclingRule
+    class RecyclingStats
+    class StatsCalculator
+    class ChartRenderer
+    class AppFactory
+    class ScanBlueprint
+    class DashboardBlueprint
+    AIService --> AIClient
+    AIService --> Classification
+    BaseRepository <|-- ScanRepository
+    BaseRepository <|-- RuleRepository
+    ScanRepository --> Database
+    RuleRepository --> Database
+    StatsCalculator --> ScanRepository
+    AppFactory --> ScanBlueprint
+    AppFactory --> DashboardBlueprint
+```
+
+### Homeworkassignment002 · lazy pipeline additions
+
+Homeworkassignment001 classes remain; these new classes implement the
+iterator/pipeline integration (A → B → C → D):
+
+```mermaid
+classDiagram
+    class Source
+    class Processor
+    class ScanEvent
+    class ClassificationEventSource
+    class SimulatedScanSource
+    class DbSink
+    class RegionFilter
+    class CategoryTally
+    class RunningRecyclingRateTracker
+    class Pipeline
+    class ScanRepository
+    Source <|-- ClassificationEventSource
+    Source <|-- SimulatedScanSource
+    Processor <|-- DbSink
+    Processor <|-- RegionFilter
+    Processor <|-- CategoryTally
+    Processor <|-- RunningRecyclingRateTracker
+    DbSink --> ScanRepository
+    Pipeline --> Source
+    Pipeline --> Processor
+    ClassificationEventSource --> ScanEvent
+```
+
+### Homeworkassignment003 · MySQL and shared web/API workflow
+
+Previous classes remain. This milestone adds A's service exceptions, B's
+MySQL implementation and D's common browser/API workflow:
+
+```mermaid
+classDiagram
+    class AIServiceError
+    class InvalidImageError
+    class ImageTooLargeError
+    class AIUnavailableError
+    class Database
+    class MySQLDatabase
+    class ScanWorkflow
+    class ScanBlueprint
+    class ApiBlueprint
+    class AIService
+    class ScanRepository
+    AIServiceError <|-- InvalidImageError
+    AIServiceError <|-- ImageTooLargeError
+    AIServiceError <|-- AIUnavailableError
+    Database <|-- MySQLDatabase
+    ScanBlueprint --> ScanWorkflow
+    ApiBlueprint --> ScanWorkflow
+    ScanWorkflow --> AIService
+    ScanWorkflow --> ScanRepository
+```
+
+### Homeworkassignment004 · validation and failure handling
+
+Previous classes remain. This milestone adds error types to A/B/C/D (the
+final-only `ItemText`, `LocalVision` and `ReviewRepository` come **after** it):
+
+```mermaid
+classDiagram
+    class AIServiceError
+    class DatabaseError
+    class InvalidScanError
+    class RuleNotFoundError
+    class AnalyticsError
+    class InvalidAnalyticsInputError
+    class NoDataError
+    class WebAppError
+    class UploadError
+    class ScanWorkflow
+    DatabaseError <|-- InvalidScanError
+    DatabaseError <|-- RuleNotFoundError
+    AnalyticsError <|-- InvalidAnalyticsInputError
+    AnalyticsError <|-- NoDataError
+    WebAppError <|-- UploadError
+    ScanWorkflow --> UploadError
+    ScanWorkflow --> DatabaseError
+    ScanWorkflow --> AIServiceError
+```
+
+### Current integrated main · class details
 
 ### Subsystem A (AI Services)
 
@@ -205,12 +361,22 @@ classDiagram
         +generate_tip(category, region) str
         +classify_upload(image_bytes, region) dict
     }
+    class LocalVision {
+        +classify(image_bytes) Classification
+    }
+    class ItemText {
+        <<module>>
+        +identify(description) Classification
+        +agrees_with_photo(description, photo_material) bool
+    }
     class AIServiceError
     class InvalidImageError
     class ImageTooLargeError
     class AIUnavailableError
     AIService o-- AIClient
     AIService ..> Classification : creates
+    AIService ..> LocalVision : optional offline matching
+    ItemText ..> Classification : exact text lookup
     Exception <|-- AIServiceError
     AIServiceError <|-- InvalidImageError
     AIServiceError <|-- ImageTooLargeError
@@ -252,6 +418,13 @@ classDiagram
         +get_rule(region, category) RecyclingRule
         +get_regions() list~str~
     }
+    class ReviewRepository {
+        +create(scan_id, owner, stream, ai_result)
+        +get_owned(scan_id, owner) dict
+        +correct(scan_id, owner, stream, material, version) dict
+        +stream_counts(scan_ids) dict
+        +reconcile_pending()
+    }
     class Processor {
         <<abstract>>
         +process(events)* Iterator
@@ -272,6 +445,7 @@ classDiagram
     DatabaseError <|-- InvalidScanError
     DatabaseError <|-- RuleNotFoundError
     BaseRepository o-- Database : uses
+    ReviewRepository o-- Database : uses
     DbSink o-- ScanRepository : saves with
     ScanRepository ..> Scan : creates
     RuleRepository ..> RecyclingRule : creates
@@ -321,6 +495,13 @@ classDiagram
     class ScanRepository {
         +get_scans(...) list~Scan~
     }
+    class ReviewRepository {
+        +stream_counts(scan_ids) dict
+    }
+    class DashboardBlueprint {
+        +dashboard()
+        +dashboard_data()
+    }
     class AnalyticsError
     class InvalidAnalyticsInputError
     class NoDataError
@@ -331,6 +512,7 @@ classDiagram
     AnalyticsError <|-- InvalidAnalyticsInputError
     AnalyticsError <|-- NoDataError
     StatsCalculator ..> ScanRepository : reads scans only
+    DashboardBlueprint ..> ReviewRepository : confirmed route counts
     StatsCalculator ..> RecyclingStats : builds
     ChartRenderer ..> RecyclingStats : plots
 ```
@@ -372,12 +554,28 @@ classDiagram
         +__init__()
         +register_routes()
         +scan()
+        +result_page(scan_id)
+        +correct_page(scan_id)
+        +manual_page()
     }
     class ScanWorkflow {
         -_service: AIService
         +__init__(service)
         +get_regions() list~str~
-        +submit(upload, region) dict
+        +submit(upload, region, description) dict
+        +owned_result(scan_id) dict
+        +manual(region, stream, material, token) dict
+        +correct(scan_id, stream, material, version, token) dict
+    }
+    class ReviewRepository {
+        +create(scan_id, owner, stream, ai_result)
+        +get_owned(scan_id, owner) dict
+        +correct(scan_id, owner, stream, material, version) dict
+    }
+    class ItemText {
+        <<module>>
+        +identify(description) Classification
+        +agrees_with_photo(description, photo_material) bool
     }
     class DashboardBlueprint {
         +__init__()
@@ -390,6 +588,7 @@ classDiagram
         +register_routes()
         +stats()
         +classify()
+        +correct(scan_id)
     }
     class WebAppError
     class UploadError
@@ -405,7 +604,9 @@ classDiagram
     ScanBlueprint ..> ScanWorkflow : submits upload
     ApiBlueprint ..> ScanWorkflow : same workflow
     ScanWorkflow ..> AIService : classifies and tips
+    ScanWorkflow ..> ItemText : text lookup and photo comparison
     ScanWorkflow ..> ScanRepository : saves
+    ScanWorkflow ..> ReviewRepository : saves suggestions and corrections
     ScanWorkflow ..> RuleRepository : checks local rules
     ScanWorkflow ..> UploadError : rejects invalid input
 ```
@@ -437,12 +638,48 @@ classDiagram
 
 **D data flow:** `create_app()` calls `AppFactory.create()` to configure the app,
 load rules, register blueprints and install error handlers. Flask calls `scan()`
-for an upload; `ScanWorkflow.submit()` validates it, calls A, reads B's rule, and
-saves through B's repository. HTML and JSON routes share this workflow.
+for text and/or an upload; `ScanWorkflow.submit()` validates both, compares
+optional photo and description, then saves an unverified suggestion through B's
+repositories. HTML and JSON routes share this workflow. A user-owned correction
+reveals reviewed local guidance; model output alone never reveals a bin.
 `dashboard_payload()` calls C's `build_dashboard_payload()` and adapts its counts
 to exclude unknown items from the recycling-rate denominator. Connections are
 opened and closed per request. Source and Processor belong to Timi; Pipeline
 belongs to Moye. Run `python demo_pipeline.py` for the complete simulated chain.
+
+### Text + photo sorting sequence
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Web as ScanBlueprint / ApiBlueprint
+    participant Flow as ScanWorkflow
+    participant Text as ItemText
+    participant Vision as AIService / LocalVision
+    participant DB as ScanRepository / ReviewRepository
+    participant Guide as Municipal guidance
+    User->>Web: City + description and/or photo
+    Web->>Flow: submit(upload, region, description)
+    opt Photo supplied
+        Flow->>Vision: classify_upload(image, region)
+        Vision-->>Flow: Unverified image suggestion or unknown
+    end
+    opt Description supplied
+        Flow->>Text: identify(description)
+        Text-->>Flow: Exact-item candidate or unknown
+        opt Photo also supplied
+            Flow->>Text: agrees_with_photo(description, photo_material)
+            Text-->>Flow: Match or mismatch (never proof)
+        end
+    end
+    Flow->>DB: Save initial suggestion and browser ownership
+    Flow->>Guide: guidance(region, unknown)
+    Guide-->>User: No bin until review
+    User->>Web: Confirm or correct item + disposal route
+    Web->>DB: Save owned correction and audit entry
+    Web->>Guide: guidance(region, confirmed route)
+    Guide-->>User: Qualified city guidance + official source
+```
 
 Shared Jinja templates, local CSS and small JavaScript enhancements provide the
 interface. Credentials are read by the server, never by the browser. HT1/HT2

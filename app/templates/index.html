@@ -4,13 +4,13 @@
   <div class="home-story">
     <div class="eyebrow"><span class="eyebrow-line"></span> GOOD HABITS. LESS GUESSWORK.</div>
     <h1>Sort smarter.<br>Waste <span>less.</span></h1>
-    <p class="story-description">An everyday item. A quick photo.<br>A clearer way to do the right thing.</p>
+    <p class="story-description">An everyday item. A photo or a few words.<br>A clearer way to do the right thing.</p>
     <div class="item-stage">
       <span class="stage-label">EVERY ITEM HAS A NEXT CHAPTER</span>
       {% include 'sorting_illustration.html' %}
       <span class="stage-caption">Illustration · Always follow your local disposal rules.</span>
     </div>
-    <div class="story-features"><span>{{ icon('spark', 17) }} Photo identification may be unavailable</span><span>{{ icon('pin', 17) }} Region-specific rules</span></div>
+    <div class="story-features"><span>{{ icon('spark', 17) }} Describe an item or add a photo</span><span>{{ icon('pin', 17) }} Region-specific rules</span></div>
   </div>
 
   <section class="card upload-card" aria-labelledby="upload-heading">
@@ -18,7 +18,7 @@
       <div><span class="step-label">A SMALL STEP STARTS HERE</span><h2 id="upload-heading">What are we sorting?</h2></div>
       <span class="soft-icon">{{ icon('scan', 24) }}</span>
     </div>
-    <p class="upload-intro">Choose your city and add a photo. {% if config.LOCAL_VISION_ENABLED %}The offline image matcher can suggest an item; you confirm it before receiving bin guidance.{% else %}Photo identification is unavailable with the current KI:connect provider; you can sort manually below.{% endif %}</p>
+    <p class="upload-intro">Choose your city, then enter an item name and/or add a photo. {% if config.LOCAL_VISION_ENABLED %}The offline matcher checks whether a photo supports your description; you confirm before receiving bin guidance.{% else %}Common item names can be suggested from text; photo recognition is unavailable with KI:connect.{% endif %}</p>
     {% include 'upload_form.html' %}
     <div class="upload-privacy">{{ icon('shield', 18) }}<span>{% if config.LOCAL_VISION_ENABLED %}Photo analysed locally on this server, not sent to KI:connect.{% else %}Photo not sent to the unverified KI:connect model.{% endif %}<br>We save the result, not your photo.</span></div>
   </section>
@@ -26,7 +26,7 @@
 
 <section class="card stream-section" aria-labelledby="manual-heading">
   <h2 id="manual-heading">Sort without a photo</h2>
-  <p>If the image match is uncertain, describe the item and choose a route yourself. Check the city guide before disposal.</p>
+  <p>Already know the correct route? Save your own choice here. Otherwise, enter a description above for a suggestion and confirm it against the city guide.</p>
   <form class="manual-form" action="{{ url_for('scan.manual_page') }}" method="post">
     <label for="manual-region">City<select id="manual-region" name="region" required><option value="" disabled selected>Choose a city</option>{% for region in regions %}<option value="{{ region }}">{{ region }}</option>{% endfor %}</select></label>
     <label for="manual-item">Item<input id="manual-item" name="material" type="text" maxlength="120" placeholder="e.g. empty food tin" required></label>
@@ -37,7 +37,7 @@
 </section>
 
 <section class="journey-strip" aria-label="How it works">
-  <article><span class="journey-number">01</span><div><h2>One item, one photo.</h2><p>A clear view helps identify the material.</p></div></article>
+  <article><span class="journey-number">01</span><div><h2>One item, a photo or words.</h2><p>A description can help check what the photo shows.</p></div></article>
   <article><span class="journey-number">02</span><div><h2>A little local knowledge.</h2><p>Your city's rules, not a one-size-fits-all answer.</p></div></article>
   <article><span class="journey-number">03</span><div><h2>Check before sorting.</h2><p>If identification is unavailable, consult your city's guide.</p></div></article>
 </section>

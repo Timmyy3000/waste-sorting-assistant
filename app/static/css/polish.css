@@ -52,7 +52,9 @@ body { font-size: 15px; }
 .field-label { font-size: 13px; margin-bottom: 9px; }
 .select-wrap select { min-height: 46px; font-size: 13px; background: #fafbf8; }
 .field-hint { font-size: 11px; margin-bottom: 21px; }
-.drop-zone { min-height: 202px; background: #f6faf3; border-color: #a7c5ae; }
+.drop-zone { min-height: 145px; background: #f6faf3; border-color: #a7c5ae; }
+.scan-form input[name="description"] { display: block; width: 100%; min-height: 46px; padding: 10px 13px; border: 1px solid #b6cbb8; border-radius: 10px; background: #fafbf8; color: var(--ink); }
+.scan-form #description-help { margin: 8px 0 15px; }
 .drop-placeholder strong { font-size: 14px; }
 .drop-placeholder > span:not(.upload-symbol) { font-size: 12px; }
 .drop-placeholder small { font-size: 10px; color: #617765; }
@@ -65,6 +67,12 @@ body { font-size: 15px; }
 .preview-name { font-size: 11px; }
 .form-error { font-size: 12px; border: 1px solid #f1c8c1; }
 .processing-note { font-size: 12px; }
+.result-illustration { padding: 18px 22px; text-align: center; }
+.result-illustration h3 { font-size: 14px; margin: 0 0 8px; }
+.result-illustration p { font-size: 11px; color: var(--muted); margin: 4px 0 0; }
+.result-illustration .bin-figure { max-width: 250px; margin: 0 auto; }
+.result-illustration .bin-figure svg { display: block; width: 100%; height: auto; }
+.correction-form #correct-stream { appearance: auto; cursor: pointer; padding-right: 32px; }
 
 /* Supporting information remains useful without pushing the form down. */
 .journey-strip { display: grid; grid-template-columns: repeat(3, 1fr); padding: 25px 0 26px; gap: 27px; border-bottom: 1px solid #dce5d8; }

@@ -28,12 +28,19 @@ class ReviewRepository:
         self.database = database
         self.database.create_tables()
 
+    def reconcile_pending(self) -> None:
+        """Repair older suggestions that were incorrectly counted as choices."""
+        self.database.execute(
+            "UPDATE scans SET category = 'unknown' WHERE category != 'unknown' "
+            "AND id IN (SELECT scan_id FROM scan_reviews WHERE status IN ('suggested', 'unresolved'))"
+        )
+
     def create(self, scan_id: int, owner: str, stream: str, ai_result: dict, status: str | None = None) -> None:
         self.database.execute(
             "INSERT INTO scan_reviews (scan_id, owner_hash, stream, status, ai_category, ai_material, ai_confidence) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (scan_id, owner, stream, status or ("unresolved" if stream == "unknown" else "suggested"),
-             ai_result["category"], ai_result["material"], ai_result["confidence"]),
+             ai_result["category"], ai_result.get("ai_material", ai_result["material"]), ai_result["confidence"]),
         )
 
     def get_owned(self, scan_id: int, owner: str) -> dict | None:
@@ -60,7 +67,10 @@ class ReviewRepository:
             batch = scan_ids[offset:offset + 500]
             placeholders = ",".join("?" for _ in batch)
             rows = self.database.query(
-                f"SELECT stream, COUNT(*) AS count FROM scan_reviews WHERE scan_id IN ({placeholders}) GROUP BY stream",
+                f"SELECT CASE WHEN status IN ('suggested', 'unresolved') THEN 'unknown' "
+                f"ELSE stream END AS stream, COUNT(*) AS count FROM scan_reviews "
+                f"WHERE scan_id IN ({placeholders}) GROUP BY CASE WHEN status IN "
+                f"('suggested', 'unresolved') THEN 'unknown' ELSE stream END",
                 tuple(batch),
             )
             for row in rows:
