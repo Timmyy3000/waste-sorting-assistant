@@ -18,7 +18,7 @@ CATEGORIES = ("recyclable", "compostable", "landfill", "unknown")
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
 CONFIDENCE_THRESHOLD = 0.6  # below this the user must confirm the category
 MAX_TIP_LENGTH = 300
-DEFAULT_MODEL = "gpt-4o-mini"
+DEFAULT_MODEL = "gpt-6-luna"
 
 
 class Classification:
