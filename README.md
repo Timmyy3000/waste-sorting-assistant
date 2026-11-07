@@ -1,4 +1,4 @@
-﻿# AI-Powered Waste Sorting & Recycling Assistant
+# AI-Powered Waste Sorting & Recycling Assistant
 
 Waste-sorting prototype with region-specific disposal rules and sorting
 analytics. Exact text-only fruit names go to the city's Bioabfall guidance
@@ -13,9 +13,9 @@ Capstone project, Compact Programming Course (Python), FH Dortmund, WS 2026/27.
 
 | Member | Subsystem | Files |
 |---|---|---|
-| Oluwatimilehin Ogunme | A - AI Services | `ai_services.py` |
+| Oluwatimilehin Ogunme | A - AI Services | `ai_services.py`, `ai_prompts.py`, `pipeline.py`, `tests/test_ai_services.py` |
 | Terkuma Caleb Lumun | B - Data & Rules | `db.py`, `schema.sql`, `schema_mysql.sql`, `data/rules_seed.csv`, `tests/test_db.py` |
-| Onyedikachi Onah | C - Dashboard & Analytics | `analytics.py` |
+| Onyedikachi Onah | C - Dashboard & Analytics | `analytics.py`, `tests/test_analytics.py` |
 | Moye Nyuysoni Glein Perry | D - Web App & Integration | `app/__init__.py`, `app/routes/`, `app/templates/`, `Dockerfile`, `README.md` |
 
 ## Architecture
@@ -65,14 +65,15 @@ People using the hosted site do not need a key. Someone running their own
 server needs their own credential or administrator-provided secret.
 
 1. Keep the key in a private file **outside this repository**, readable only by
-   the server account. The provided Desktop key has been copied to a protected
-   local application folder on the development machine; it is not in Git.
+   the server account. The key is never committed to Git.
 2. Copy `.env.example` to `.env` and set `OPENAI_API_KEY_FILE` to that file's
-   absolute path. Configure `OPENAI_BASE_URL` and `OPENAI_MODEL` as in the example.
+   absolute path. Configure `OPENAI_BASE_URL` and `OPENAI_MODEL` if needed (see `.env.example`).
 3. Start Flask normally. `AppConfig.configure_ai()` loads the secret server-side.
    An existing `OPENAI_API_KEY` environment variable takes precedence.
 
-The sample KI:connect configuration uses `https://chat.kiconnect.nrw/api/v1`.
+The app uses the **OpenAI API** by default (model `gpt-6-luna`). `OPENAI_BASE_URL` can
+optionally point it at an OpenAI-compatible provider such as KI:connect
+(`https://chat.kiconnect.nrw/api/v1`); we tested that provider as follows.
 **Photo classification is not verified on this provider.** Live checks with
 `mistralai-mistral-small-4` mislabeled cardboard, metal, glass and plastic with
 high reported confidence; sending an image successfully did not mean the model
@@ -739,4 +740,4 @@ normal dashboard. Passing route tests does not prove photo recognition accuracy.
 
 ## Team video
 
-_Link added with each homework assignment._
+Hometask videos: https://github.com/Timmyy3000/waste-sorting-assistant/releases/tag/hometask-videos
