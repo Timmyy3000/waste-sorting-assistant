@@ -10,7 +10,7 @@ Capstone project, Compact Programming Course (Python), FH Dortmund, WS 2026/27.
 
 | Member | Subsystem | Files |
 |---|---|---|
-| Oluwatimilehin Ogunme | A · AI Services | `ai_services.py` |
+| Oluwatimilehin Ogunme | A · AI Services | `ai_services.py`, `ai_prompts.py` |
 | Terkuma Caleb Lumun | B · Data & Rules | `db.py`, `schema.sql`, `data/rules_seed.csv`, `tests/test_db.py` |
 | Onyedikachi Onah | C · Dashboard & Analytics | `analytics.py` |
 | Moye Nyuysoni Glein Perry | D · Web App & Integration | `app.py`, `templates/`, `Dockerfile` |
@@ -264,4 +264,4 @@ to SQLite's `database_path` must change the Python class and UML together.
 
 ## Team video
 
-_Link added with each homework assignment._
+[Watch the Hometask 1 team video](https://github.com/Timmyy3000/waste-sorting-assistant/releases/download/hometask-videos/Hometask1.mp4)
