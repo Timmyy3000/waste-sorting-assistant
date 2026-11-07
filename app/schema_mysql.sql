@@ -48,3 +48,12 @@ CREATE TABLE IF NOT EXISTS scan_corrections (
     new_material VARCHAR(200) NOT NULL,
     FOREIGN KEY (scan_id) REFERENCES scans(id)
 );
+
+CREATE TABLE IF NOT EXISTS photo_uploads (
+    owner_hash VARCHAR(64) NOT NULL,
+    region VARCHAR(100) NOT NULL,
+    image_hash CHAR(64) NOT NULL,
+    scan_id INT NOT NULL PRIMARY KEY,
+    INDEX photo_uploads_lookup (owner_hash, region, image_hash),
+    FOREIGN KEY (scan_id) REFERENCES scans(id)
+);

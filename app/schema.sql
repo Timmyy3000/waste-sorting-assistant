@@ -50,3 +50,14 @@ CREATE TABLE IF NOT EXISTS scan_corrections (
     new_material TEXT NOT NULL,
     FOREIGN KEY (scan_id) REFERENCES scans(id)
 );
+
+-- No photos stored: exact upload fingerprints are browser- and city-scoped.
+CREATE TABLE IF NOT EXISTS photo_uploads (
+    owner_hash TEXT NOT NULL,
+    region TEXT NOT NULL,
+    image_hash TEXT NOT NULL,
+    scan_id INTEGER NOT NULL PRIMARY KEY,
+    FOREIGN KEY (scan_id) REFERENCES scans(id)
+);
+
+CREATE INDEX IF NOT EXISTS photo_uploads_lookup ON photo_uploads(owner_hash, region, image_hash);

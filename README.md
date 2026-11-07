@@ -128,6 +128,16 @@ choose the appropriate route. The database preserves the initial model response
 and an append-only correction log, while the dashboard and JSON statistics use
 the latest saved choice. Recent history is visible only to the browser that
 created it. Older scans remain in aggregate statistics but are not editable.
+Confirming in the HTML form returns to the dashboard with a saved-choice message;
+the recent-scans table links back to the editable result. Confirmed or corrected
+photos are indexed by SHA-256 of their normalised bytes, city and anonymous
+browser owner. Uploading the exact same photo again in that city/browser reuses
+the saved choice (labelled **Previously confirmed by you**) instead of calling
+the model or adding a duplicate scan to dashboard counts. A different photo,
+city or browser still requires review. Photos themselves are never stored, so
+older scans without a fingerprint cannot be matched retroactively. The original
+visual similarity remains unchanged after confirmation: saving a choice does
+not retrain the image model or prove that all photos of the same fruit match.
 Even a high-confidence model suggestion does **not** display a bin until the
 user confirms or corrects it. This prevents a model confusing a whole banana
 with a banana peel from immediately giving disposal instructions.

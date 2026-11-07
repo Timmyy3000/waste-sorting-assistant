@@ -121,3 +121,29 @@ class ReviewRepository:
             self.database.connection.rollback()
             raise
         return self.get_owned(scan_id, owner)
+
+
+class PhotoMatchRepository:
+    """Index exact normalised photos without retaining the photo itself."""
+
+    def __init__(self, database: Database):
+        self.database = database
+        self.database.create_tables()
+
+    def previously_confirmed(self, owner: str, region: str, image_hash: str) -> int | None:
+        rows = self.database.query(
+            "SELECT p.scan_id FROM photo_uploads p "
+            "JOIN scan_reviews r ON r.scan_id = p.scan_id AND r.owner_hash = p.owner_hash "
+            "WHERE p.owner_hash = ? AND p.region = ? AND p.image_hash = ? "
+            "AND r.status IN ('confirmed', 'corrected') "
+            "ORDER BY p.scan_id DESC LIMIT 1",
+            (owner, region, image_hash),
+        )
+        return rows[0]["scan_id"] if rows else None
+
+    def remember(self, owner: str, region: str, image_hash: str, scan_id: int) -> None:
+        """Track each upload so confirming any pending duplicate makes it reusable."""
+        self.database.execute(
+            "INSERT INTO photo_uploads (owner_hash, region, image_hash, scan_id) VALUES (?, ?, ?, ?)",
+            (owner, region, image_hash, scan_id),
+        )

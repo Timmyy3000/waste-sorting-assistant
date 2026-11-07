@@ -14,6 +14,12 @@ def photo(format="PNG"):
     return output.getvalue()
 
 
+def other_photo():
+    output = BytesIO()
+    Image.new("RGB", (64, 64), "#6cba4d").save(output, format="PNG")
+    return output.getvalue()
+
+
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     """Return a test client with an isolated SQLite database."""
@@ -38,7 +44,7 @@ def test_home_page_loads(client):
     assert b"Bottles and Pfand" in response.data
     assert b"Illustration of a Pfand bottle return machine" in response.data
     assert b"Altglas" in response.data
-    assert response.headers["X-App-Version"] == "2026-11-07-fruit-v6"
+    assert response.headers["X-App-Version"] == "2026-11-07-confirmation-v7"
 
 
 def test_text_upload_shows_friendly_error(client):
@@ -263,7 +269,9 @@ def test_form_correction_and_invalid_stream(client, monkeypatch):
     data["stream"] = "packaging"
     response = client.post("/scan/1/correct", data=data)
     assert response.status_code == 303
-    assert b"Wertstofftonne" in client.get(response.headers["Location"]).data
+    assert response.headers["Location"].endswith("/dashboard")
+    assert b"Confirmation saved." in client.get(response.headers["Location"]).data
+    assert b"Wertstofftonne" in client.get("/scan/1").data
 
 
 def test_manual_sort_works_without_vision_or_photo(client, monkeypatch):
@@ -506,8 +514,129 @@ def test_web_form_text_only_reaches_result_and_correction(client):
         "stream": "bio", "material": "banana peel", "version": 0, "csrf_token": token,
     })
     assert saved.status_code == 303
-    assert b"Biotonne" in client.get(saved.headers["Location"]).data
+    assert saved.headers["Location"].endswith("/dashboard")
+    dashboard = client.get(saved.headers["Location"]).data
+    assert b"Confirmation saved." in dashboard
+    assert b"banana peel" in dashboard
+    assert b"Review / correct" in dashboard
     assert client.get("/api/stats").get_json()["stream_counts"]["bio"] == 1
+
+
+def test_exact_photo_reuses_only_confirmed_choice_in_same_city_and_browser(client, monkeypatch):
+    from app.ai_services import AIService
+
+    calls = []
+    def classify(self, image_bytes, region):
+        calls.append(region)
+        return {"category": "compostable", "material": "banana (whole fruit or peel)",
+                "confidence": 0, "match_score": 0.331, "region": region}
+
+    monkeypatch.setattr(AIService, "classify_upload", classify)
+    def upload(browser, city="Berlin", image=None, filename="banana.png"):
+        return browser.post("/api/classify", data={
+            "region": city, "photo": (BytesIO(image if image is not None else photo()), filename),
+        }).get_json()
+
+    first = upload(client)
+    assert first["status"] == "suggested"
+    assert upload(client)["needs_confirmation"] is True  # not confirmed yet
+    assert len(calls) == 2
+    # Confirm the most recent suggestion; pending uploads do not grant trust.
+    latest_id = 2
+    saved = client.post(f"/api/scans/{latest_id}/correct", json={
+        "stream": "bio", "material": "banana peel", "version": 0,
+    }, headers={"X-CSRF-Token": first["csrf_token"]}).get_json()
+    assert saved["status"] == "corrected"
+    repeat = upload(client, filename="same-photo.jpg")
+    assert repeat["previously_confirmed"] is True
+    assert repeat["scan_id"] == latest_id
+    assert repeat["material"] == "banana peel"
+    assert repeat["status"] == "corrected"
+    assert repeat["bin"] == "Biotonne"
+    assert repeat["match_score"] == pytest.approx(0.331)
+    assert len(calls) == 2
+    page = client.post("/scan", data={"region": "Berlin", "photo": (BytesIO(photo()), "same.png")}).data
+    assert b"Previously confirmed by you" in page
+    assert b"Save my correction" in page
+    assert b"0.331 (cosine similarity; not confidence)" in page
+    assert client.get("/api/stats").get_json()["total_scans"] == 2
+    assert upload(client, city="Dortmund")["needs_confirmation"] is True
+    assert upload(client, image=other_photo())["needs_confirmation"] is True
+    other_browser = client.application.test_client()
+    assert upload(other_browser)["needs_confirmation"] is True
+    assert len(calls) == 5
+
+
+def test_photo_hash_is_added_to_existing_sqlite_without_losing_scans(tmp_path, monkeypatch):
+    import sqlite3
+    from app.db import SCHEMA_PATH
+
+    path = tmp_path / "before-photo-index.db"
+    schema = SCHEMA_PATH.read_text(encoding="utf-8").split("-- No photos stored:")[0]
+    with sqlite3.connect(path) as connection:
+        connection.executescript(schema)
+        connection.execute("INSERT INTO scans (timestamp, region, category, material, confidence) VALUES (?,?,?,?,?)",
+                           ("2026-11-07T10:00:00", "Berlin", "unknown", "old scan", 0))
+    monkeypatch.setenv("DB_PATH", str(path))
+    monkeypatch.delenv("DB_HOST", raising=False)
+    browser = create_app().test_client()
+    assert browser.get("/api/stats").get_json()["total_scans"] == 1
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM photo_uploads").fetchone()[0] == 0
+        assert connection.execute("SELECT material FROM scans WHERE id=1").fetchone()[0] == "old scan"
+
+
+def test_confirming_earlier_of_two_pending_photo_scans_still_reuses_it(client, monkeypatch):
+    from app.ai_services import AIService
+
+    calls = []
+    def classify(self, image_bytes, region):
+        calls.append(region)
+        return {"category": "compostable", "material": "banana", "confidence": 0,
+                "match_score": 0.33, "region": region}
+
+    monkeypatch.setattr(AIService, "classify_upload", classify)
+    def submit():
+        return client.post("/api/classify", data={
+            "region": "Berlin", "photo": (BytesIO(photo()), "banana.png"),
+        }).get_json()
+
+    first, second = submit(), submit()
+    assert first["scan_id"] != second["scan_id"]
+    saved = client.post(f"/api/scans/{first['scan_id']}/correct", json={
+        "stream": "bio", "material": "", "version": 0,
+    }, headers={"X-CSRF-Token": first["csrf_token"]})
+    assert saved.status_code == 200
+    reused = submit()
+    assert reused["previously_confirmed"] is True
+    assert reused["scan_id"] == first["scan_id"]
+    assert len(calls) == 2
+
+
+def test_reuse_respects_user_corrected_route_not_model_category(client, monkeypatch):
+    from app.ai_services import AIService
+
+    def classify(self, image_bytes, region):
+        return {"category": "compostable", "material": "banana", "confidence": 0,
+                "match_score": 0.31, "region": region}
+
+    monkeypatch.setattr(AIService, "classify_upload", classify)
+    def upload():
+        return client.post("/api/classify", data={
+            "region": "Berlin", "photo": (BytesIO(photo()), "banana.png"),
+        }).get_json()
+
+    first = upload()
+    corrected = client.post(f"/api/scans/{first['scan_id']}/correct", json={
+        "stream": "packaging", "material": "plastic wrapper", "version": 0,
+    }, headers={"X-CSRF-Token": first["csrf_token"]}).get_json()
+    assert corrected["status"] == "corrected"
+    repeated = upload()
+    assert repeated["previously_confirmed"] is True
+    assert repeated["stream"] == "packaging"
+    assert repeated["material"] == "plastic wrapper"
+    assert repeated["ai_category"] == "compostable"
+    assert repeated["match_score"] == pytest.approx(0.31)
 
 
 def test_apple_text_is_immediately_routed_and_can_be_corrected(client):

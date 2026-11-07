@@ -1,10 +1,11 @@
 """Upload routes and the shared web-to-service workflow."""
 
 from datetime import datetime, timezone
+import hashlib
 
 import secrets
 
-from flask import current_app, redirect, render_template, request, session, url_for
+from flask import current_app, flash, redirect, render_template, request, session, url_for
 from werkzeug.datastructures import FileStorage
 
 from app.ai_services import AIService, AIUnavailableError
@@ -14,7 +15,7 @@ from app.image_uploads import normalise
 from app.item_text import agrees_with_photo, identify, is_named_fruit
 from app.routes.base import BaseBlueprint
 from app.routes.errors import UploadError
-from app.scan_reviews import ReviewRepository, csrf_token, owner_hash
+from app.scan_reviews import PhotoMatchRepository, ReviewRepository, csrf_token, owner_hash
 
 
 class ScanWorkflow:
@@ -47,6 +48,14 @@ class ScanWorkflow:
             if not image_bytes:
                 raise UploadError("The photo is empty. Please choose another file.")
             image_bytes = normalise(image_bytes)
+            image_hash = hashlib.sha256(image_bytes).hexdigest()
+            owner = owner_hash()
+            with create_database() as database:
+                previous_id = PhotoMatchRepository(database).previously_confirmed(owner, region, image_hash)
+            if previous_id is not None:
+                previous = self.owned_result(previous_id)
+                previous["previously_confirmed"] = True
+                return previous
             try:
                 result = self._service.classify_upload(image_bytes, region)
             except (ValueError, TypeError, KeyError):
@@ -92,6 +101,8 @@ class ScanWorkflow:
             result["scan_id"] = ScanRepository(database).save_scan(scan)
             ReviewRepository(database).create(result["scan_id"], owner_hash(), stream, result,
                                                status="auto_routed" if auto_routed else None)
+            if has_photo:
+                PhotoMatchRepository(database).remember(owner, region, image_hash, result["scan_id"])
         result["category"] = CATEGORY[stream] if auto_routed else "unknown"
         result["stream"] = stream
         result["stream_label"] = STREAMS[stream]
@@ -104,6 +115,7 @@ class ScanWorkflow:
         result["tip"] = ("Automatically routed from your text description. Correct it if the item differs and check local rules."
                          if auto_routed else "Review the item and verify the municipal guidance before disposal.")
         result["csrf_token"] = csrf_token()
+        result["previously_confirmed"] = False
         return result
 
     def owned_result(self, scan_id: int) -> dict:
@@ -123,6 +135,7 @@ class ScanWorkflow:
             "needs_confirmation": review["status"] in ("unresolved", "suggested"),
             "bin": guide.bin, "instructions": guide.instructions, "source": guide.source,
             "tip": "Check the linked municipal guide before disposal.", "csrf_token": csrf_token(),
+            "previously_confirmed": False,
         }
 
     def manual(self, region: str, stream: str, material: str, token: str) -> dict:
@@ -184,10 +197,11 @@ class ScanBlueprint(BaseBlueprint):
             version = int(request.form.get("version", ""))
         except ValueError:
             raise UploadError("Reload the result before correcting it.") from None
-        ScanWorkflow().correct(scan_id, request.form.get("stream", ""),
-                               request.form.get("material", ""), version,
-                               request.form.get("csrf_token", ""))
-        return redirect(url_for("scan.result_page", scan_id=scan_id), code=303)
+        result = ScanWorkflow().correct(scan_id, request.form.get("stream", ""),
+                                        request.form.get("material", ""), version,
+                                        request.form.get("csrf_token", ""))
+        flash(f"Saved: {result['material']} → {result['stream_label']}. You can correct it from your recent scans.")
+        return redirect(url_for("dashboard.dashboard"), code=303)
 
     def manual_page(self):
         result = ScanWorkflow().manual(request.form.get("region", ""),

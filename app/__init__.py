@@ -31,7 +31,7 @@ class AppFactory:
         self.config.configure_ai()
         app.config["WEB_INTEGRATED"] = True
         app.config["LOCAL_VISION_ENABLED"] = bool(os.getenv("LOCAL_VISION_MODEL_DIR"))
-        app.config["APP_VERSION"] = "2026-11-07-fruit-v6"
+        app.config["APP_VERSION"] = "2026-11-07-confirmation-v7"
         app.config["MAX_CONTENT_LENGTH"] = self.config.upload_limit
         app.config["ALLOWED_TYPES"] = self.config.allowed_types
         app.config["DB_HOST"] = self.config.database_host
