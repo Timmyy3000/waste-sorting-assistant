@@ -55,7 +55,8 @@ pytest                          # run the tests
 
 ## Branches
 
-Each homework assignment has its own branch: `Homeworkassignment001`, `Homeworkassignment002`, …
+Each homework assignment has its own branch: `Homeassignment1`, `HomeworkAssignment2`,
+`HomeworkAssignment3`, `HomeworkAssignment4` (the earlier names `Homeworkassignment001`–`004` point to the same work).
 
 ## UML class diagrams
 
@@ -264,4 +265,4 @@ to SQLite's `database_path` must change the Python class and UML together.
 
 ## Team video
 
-[Watch the Hometask 1 team video](https://github.com/Timmyy3000/waste-sorting-assistant/releases/download/hometask-videos/Hometask1.mp4)
+[Watch the Hometask 1 team video](https://drive.google.com/file/d/1cr-8N4sJcH2zkYDQZWkorWoFRaa5uAWe/view?usp=drive_link)
