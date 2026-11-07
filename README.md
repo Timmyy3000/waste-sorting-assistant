@@ -237,7 +237,7 @@ quota, and managed secrets. No public hosting has been provisioned by this repo.
 
 ## Branches
 
-Each homework assignment has its own branch: `Homeworkassignment001` through `Homeworkassignment004`.
+Each homework assignment has its own branch: `Homeassignment1`, `HomeworkAssignment2`, `HomeworkAssignment3` and `HomeworkAssignment4`.
 `main` is the final integrated application. The homework branches preserve their
 assignment-specific versions; contributor branches are removed only after their
 commits are verified as included in the matching homework branch.
@@ -250,7 +250,7 @@ below show the classes added or extended at each assignment; the detailed
 diagrams after them describe integrated `main`. Final-only modules are **not**
 retroactively attributed to a homework submission.
 
-### Homeworkassignment001 · core classes (A, B, C, D)
+### Homeassignment1 · core classes (A, B, C, D)
 
 ```mermaid
 classDiagram
@@ -280,9 +280,9 @@ classDiagram
     AppFactory --> DashboardBlueprint
 ```
 
-### Homeworkassignment002 · lazy pipeline additions
+### HomeworkAssignment2 · lazy pipeline additions
 
-Homeworkassignment001 classes remain; these new classes implement the
+Homeassignment1 classes remain; these new classes implement the
 iterator/pipeline integration (A → B → C → D):
 
 ```mermaid
@@ -310,7 +310,7 @@ classDiagram
     ClassificationEventSource --> ScanEvent
 ```
 
-### Homeworkassignment003 · MySQL and shared web/API workflow
+### HomeworkAssignment3 · MySQL and shared web/API workflow
 
 Previous classes remain. This milestone adds A's service exceptions, B's
 MySQL implementation and D's common browser/API workflow:
@@ -338,7 +338,7 @@ classDiagram
     ScanWorkflow --> ScanRepository
 ```
 
-### Homeworkassignment004 · validation and failure handling
+### HomeworkAssignment4 · validation and failure handling
 
 Previous classes remain. This milestone adds error types to A/B/C/D (the
 final-only `ItemText`, `LocalVision` and `ReviewRepository` come **after** it):
