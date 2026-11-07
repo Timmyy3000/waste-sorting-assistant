@@ -359,4 +359,4 @@ The remaining subsystem exception tests and custom D error classes are on HT4.
 
 ## Team video
 
-[Watch the Hometask 3 team video](https://github.com/Timmyy3000/waste-sorting-assistant/releases/download/hometask-videos/Hometask3.mp4)
+[Watch the Hometask 3 team video](https://drive.google.com/file/d/11qSzU9Psjnom2DWuazMMHRGFfmh-SFUw/view?usp=drive_link)
