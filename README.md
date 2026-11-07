@@ -200,8 +200,11 @@ database, rather than accepting its socket-only initialization server. Web also
 restarts on failure. For a non-destructive fresh-start check, use a separate
 Compose project name and volume (e.g. `docker compose -p waste_fresh up --build`);
 do not run `down -v` on a project with scans you want to retain. Compose does
-not include offline model weights: mount an external model directory and set
-`LOCAL_VISION_MODEL_DIR` in the web container to enable photo matching there.
+not include offline model weights by default. To enable the installed offline
+model, set the host's `LOCAL_VISION_MODEL_DIR` in the ignored `.env` and run
+`docker compose -f docker-compose.yml -f docker-compose.vision.yml up --build`.
+This mounts the host model read-only at `/opt/waste-vision` inside the web
+container. It does not copy model weights into Git or the Docker image.
 
 The supplied Flask command is a **local development server**, not a public
 deployment. To share the app publicly, deploy the backend behind HTTPS with a

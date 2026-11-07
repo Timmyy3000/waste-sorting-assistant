@@ -1,0 +1,11 @@
+# Optional companion to docker-compose.yml: use locally installed model assets.
+# Example: docker compose -f docker-compose.yml -f docker-compose.vision.yml up --build
+services:
+  web:
+    environment:
+      LOCAL_VISION_MODEL_DIR: /opt/waste-vision
+    volumes:
+      - type: bind
+        source: ${LOCAL_VISION_MODEL_DIR:?Install model assets outside the repository first}
+        target: /opt/waste-vision
+        read_only: true

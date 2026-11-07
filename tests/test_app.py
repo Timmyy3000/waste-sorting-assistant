@@ -518,6 +518,10 @@ def test_compose_waits_for_real_mysql_tcp_query():
     assert "--protocol=TCP -h 127.0.0.1" in compose
     assert "SELECT 1" in compose
     assert 'restart: on-failure' in compose
+    override = (Path(__file__).resolve().parent.parent / "docker-compose.vision.yml").read_text()
+    assert 'source: ${LOCAL_VISION_MODEL_DIR:' in override
+    assert 'target: /opt/waste-vision' in override
+    assert 'read_only: true' in override
 
 
 def test_old_unconfirmed_suggestions_are_not_in_dashboard(client):
