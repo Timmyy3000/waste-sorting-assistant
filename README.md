@@ -18,7 +18,7 @@ municipalities do not know their recycling rates.
 
 ## Screencast
 
-7-minute demo of the running application: **LINK_TO_SCREENCAST**
+Product demo of the running application (6 minutes): **[Watch the screencast on Google Drive](https://drive.google.com/file/d/1nI-dJue1pg_Cnj-VB1QrQ9kbbHIqIzoi/view?usp=drive_link)**
 
 ## Presentation
 
