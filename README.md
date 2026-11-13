@@ -20,6 +20,10 @@ municipalities do not know their recycling rates.
 
 7-minute demo of the running application: **LINK_TO_SCREENCAST**
 
+## Presentation
+
+Final presentation slides: [PDF](docs/presentation/EcoSort_final_presentation.pdf) · [PowerPoint](docs/presentation/EcoSort_final_presentation.pptx)
+
 ## Team
 
 | Member | Subsystem | Files |
