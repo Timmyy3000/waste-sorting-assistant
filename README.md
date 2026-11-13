@@ -1,13 +1,24 @@
 # AI-Powered Waste Sorting & Recycling Assistant
 
-Waste-sorting prototype with region-specific disposal rules and sorting
-analytics. Exact text-only fruit names go to the city's Bioabfall guidance
-immediately and remain editable. The optional offline image matcher suggests
-candidate items but never assigns a bin without human confirmation.
+Capstone project of the Compact Programming Course with Python (CPC),
+Fachhochschule Dortmund, WS 2026/27.
 
-Capstone project, Compact Programming Course (Python), FH Dortmund, WS 2026/27.
+**Problem:** people often do not know which bin an item belongs in, and
+municipalities do not know their recycling rates.
 
-**Problem:** people don't know which bin an item belongs in, and municipalities don't know their recycling rates.
+**What the app does:**
+- A resident uploads a photo or types an item name and picks their city.
+- The app classifies the item (recyclable, compostable, landfill) and shows the
+  correct bin from that city's local recycling rules.
+- The OpenAI API writes a short educational disposal tip for the item.
+- Every scan is stored in a database. A dashboard for municipalities shows waste
+  composition and recycling rates per region and date range.
+- Photo recognition only suggests an item. The user confirms or corrects it
+  before a bin is assigned, so a wrong AI guess never decides the bin.
+
+## Screencast
+
+7-minute demo of the running application: **LINK_TO_SCREENCAST**
 
 ## Team
 
@@ -71,6 +82,10 @@ server needs their own credential or administrator-provided secret.
 3. Start Flask normally. `AppConfig.configure_ai()` loads the secret server-side.
    An existing `OPENAI_API_KEY` environment variable takes precedence.
 
+**Replace the key:** the repository contains no API key. Put your own OpenAI key
+in the key file (or the `OPENAI_API_KEY` variable) before starting the app. The
+placeholders to replace are listed in `.env.example`.
+
 The app uses the **OpenAI API** by default (model `gpt-6-luna`). `OPENAI_BASE_URL` can
 optionally point it at an OpenAI-compatible provider such as KI:connect
 (`https://chat.kiconnect.nrw/api/v1`); we tested that provider as follows.
@@ -84,7 +99,7 @@ can use the normal classification workflow. Even then, model confidence is not
 measured accuracy and local rules are category-level, not item-specific. Only
 classification records, not photo files, are stored here.
 
-### German disposal guidance and corrections (final `main`)
+### German disposal guidance and corrections
 
 Results use conservative disposal routes: **Bioabfall, Restmüll, paper/cardboard,
 lightweight packaging, Altglas, Pfand returns, electronics/batteries, hazardous
@@ -235,137 +250,9 @@ deployment. To share the app publicly, deploy the backend behind HTTPS with a
 production WSGI server, authentication/usage limits appropriate to your provider
 quota, and managed secrets. No public hosting has been provisioned by this repo.
 
-## Branches
-
-Each homework assignment has its own branch: `Homeassignment1`, `HomeworkAssignment2`, `HomeworkAssignment3` and `HomeworkAssignment4`.
-`main` is the final integrated application. The homework branches preserve their
-assignment-specific versions; contributor branches are removed only after their
-commits are verified as included in the matching homework branch.
-
 ## UML class diagrams
 
 The diagrams follow the team presentation order A, B, C, then D.
-The historical homework branches remain unchanged. The milestone diagrams
-below show the classes added or extended at each assignment; the detailed
-diagrams after them describe integrated `main`. Final-only modules are **not**
-retroactively attributed to a homework submission.
-
-### Homeassignment1 · core classes (A, B, C, D)
-
-```mermaid
-classDiagram
-    class AIClient
-    class AIService
-    class Classification
-    class Database
-    class BaseRepository
-    class ScanRepository
-    class RuleRepository
-    class Scan
-    class RecyclingRule
-    class RecyclingStats
-    class StatsCalculator
-    class ChartRenderer
-    class AppFactory
-    class ScanBlueprint
-    class DashboardBlueprint
-    AIService --> AIClient
-    AIService --> Classification
-    BaseRepository <|-- ScanRepository
-    BaseRepository <|-- RuleRepository
-    ScanRepository --> Database
-    RuleRepository --> Database
-    StatsCalculator --> ScanRepository
-    AppFactory --> ScanBlueprint
-    AppFactory --> DashboardBlueprint
-```
-
-### HomeworkAssignment2 · lazy pipeline additions
-
-Homeassignment1 classes remain; these new classes implement the
-iterator/pipeline integration (A → B → C → D):
-
-```mermaid
-classDiagram
-    class Source
-    class Processor
-    class ScanEvent
-    class ClassificationEventSource
-    class SimulatedScanSource
-    class DbSink
-    class RegionFilter
-    class CategoryTally
-    class RunningRecyclingRateTracker
-    class Pipeline
-    class ScanRepository
-    Source <|-- ClassificationEventSource
-    Source <|-- SimulatedScanSource
-    Processor <|-- DbSink
-    Processor <|-- RegionFilter
-    Processor <|-- CategoryTally
-    Processor <|-- RunningRecyclingRateTracker
-    DbSink --> ScanRepository
-    Pipeline --> Source
-    Pipeline --> Processor
-    ClassificationEventSource --> ScanEvent
-```
-
-### HomeworkAssignment3 · MySQL and shared web/API workflow
-
-Previous classes remain. This milestone adds A's service exceptions, B's
-MySQL implementation and D's common browser/API workflow:
-
-```mermaid
-classDiagram
-    class AIServiceError
-    class InvalidImageError
-    class ImageTooLargeError
-    class AIUnavailableError
-    class Database
-    class MySQLDatabase
-    class ScanWorkflow
-    class ScanBlueprint
-    class ApiBlueprint
-    class AIService
-    class ScanRepository
-    AIServiceError <|-- InvalidImageError
-    AIServiceError <|-- ImageTooLargeError
-    AIServiceError <|-- AIUnavailableError
-    Database <|-- MySQLDatabase
-    ScanBlueprint --> ScanWorkflow
-    ApiBlueprint --> ScanWorkflow
-    ScanWorkflow --> AIService
-    ScanWorkflow --> ScanRepository
-```
-
-### HomeworkAssignment4 · validation and failure handling
-
-Previous classes remain. This milestone adds error types to A/B/C/D (the
-final-only `ItemText`, `LocalVision` and `ReviewRepository` come **after** it):
-
-```mermaid
-classDiagram
-    class AIServiceError
-    class DatabaseError
-    class InvalidScanError
-    class RuleNotFoundError
-    class AnalyticsError
-    class InvalidAnalyticsInputError
-    class NoDataError
-    class WebAppError
-    class UploadError
-    class ScanWorkflow
-    DatabaseError <|-- InvalidScanError
-    DatabaseError <|-- RuleNotFoundError
-    AnalyticsError <|-- InvalidAnalyticsInputError
-    AnalyticsError <|-- NoDataError
-    WebAppError <|-- UploadError
-    ScanWorkflow --> UploadError
-    ScanWorkflow --> DatabaseError
-    ScanWorkflow --> AIServiceError
-```
-
-### Current integrated main · class details
 
 ### Subsystem A (AI Services)
 
@@ -724,20 +611,21 @@ contain styled previews; live integration starts in HT3.
 
 ## Testing and coverage
 
-Run `pytest` for the team tests. The original 15-test target is retained and
-expanded with regression cases for the new web workflow: real SQLite saves,
-mocked classification, invalid regions/files, provider failures, rate handling,
-JSON errors, date filters and static assets. Live-provider smoke checks are run
-separately and do not make automated tests depend on the network or a real key.
-Run `pytest --cov=app --cov-branch` for statement and branch coverage. Coverage
-shows exercised code, not proof that every behaviour is correct.
+```bash
+pytest                              # run all unit tests
+pytest --cov=app --cov-branch       # with statement and branch coverage
+```
 
-The preserved HT4 assignment branch previously passed 35 tests. Final `main`
-adds city-specific guidance, correction and ownership tests. Earlier live tests
-revealed severe KI:connect misidentification, so sending images to that endpoint
-is disabled. Live samples use an isolated SQLite database and do not alter the
-normal dashboard. Passing route tests does not prove photo recognition accuracy.
+**Current result (main, Python 3.12): 88 passed, 80 % total coverage.**
 
-## Team video
+| Subsystem | Test file(s) | Main module coverage |
+|---|---|---|
+| A - AI Services | `test_ai_services.py` | `ai_services.py` 74 %, `pipeline.py` 100 %, `ai_prompts.py` 100 % |
+| B - Data & Rules | `test_db.py` | `db.py` 80 % |
+| C - Dashboard & Analytics | `test_analytics.py` | `analytics.py` 70 % |
+| D - Web App & Integration | `test_app.py`, `test_image_uploads.py` | `routes/scan.py` 93 %, `routes/dashboard.py` 98 %, `__init__.py` 95 % |
 
-Hometask videos: https://github.com/Timmyy3000/waste-sorting-assistant/releases/tag/hometask-videos
+The tests mock the AI provider, so they need no network or API key. They use a
+temporary SQLite database, so they do not change the normal dashboard data.
+Coverage shows which code ran in the tests. It does not prove that photo
+recognition is accurate.

@@ -11,7 +11,8 @@ body { font-size: 15px; }
 .nav-link { font-size: 13px; }
 .header-note { font-size: 12px; }
 .page-shell { max-width: 1240px; }
-.site-footer { max-width: 1240px; font-size: 11px; }
+.site-footer { max-width: 1240px; font-size: 11px; flex-wrap: wrap; }
+.footer-credits { flex-basis: 100%; margin: 0; line-height: 1.7; }
 
 /* A compact first screen puts the real upload action beside the introduction. */
 .home-workspace {
