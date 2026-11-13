@@ -82,9 +82,19 @@ server needs their own credential or administrator-provided secret.
 3. Start Flask normally. `AppConfig.configure_ai()` loads the secret server-side.
    An existing `OPENAI_API_KEY` environment variable takes precedence.
 
-**Replace the key:** the repository contains no API key. Put your own OpenAI key
-in the key file (or the `OPENAI_API_KEY` variable) before starting the app. The
-placeholders to replace are listed in `.env.example`.
+**Replace the key:** the repository contains no API key. Put your own key in the
+key file (or the `OPENAI_API_KEY` variable) before starting the app. The
+placeholders to replace are listed in `.env.example`. Any OpenAI-compatible
+provider works by changing three values in `.env`:
+
+| Provider | `OPENAI_BASE_URL` | `OPENAI_MODEL` | Key |
+|---|---|---|---|
+| OpenAI (default) | leave unset | `gpt-6-luna` | your OpenAI API key |
+| KI:connect NRW (FH login) | `https://chat.kiconnect.nrw/api/v1` | a model listed in KI:connect | your KI:connect API key |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | a Gemini model from Google AI Studio | your Gemini API key |
+
+With KI:connect, the app switches photo recognition off (see below) and uses
+text descriptions and AI tips only.
 
 The app uses the **OpenAI API** by default (model `gpt-6-luna`). `OPENAI_BASE_URL` can
 optionally point it at an OpenAI-compatible provider such as KI:connect
