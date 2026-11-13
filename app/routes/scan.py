@@ -22,7 +22,7 @@ class ScanWorkflow:
     """Validate one upload and connect the AI, rules and scan repository."""
 
     def __init__(self, service: AIService | None = None) -> None:
-        self._service = service if service is not None else AIService()
+        self._service = service if service is not None else AIService(write_tips=False)
 
     def get_regions(self) -> list[str]:
         """Read supported regions from the rules repository."""

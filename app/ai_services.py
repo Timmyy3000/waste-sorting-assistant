@@ -170,8 +170,11 @@ class AIClient:
 class AIService:
     """What the rest of the app uses: classify a photo and write a disposal tip."""
 
-    def __init__(self, client: AIClient | None = None):
+    def __init__(self, client: AIClient | None = None, write_tips: bool = True):
         self._client = client or AIClient()
+        # The web app shows reviewed city guidance instead of a model tip, so it can
+        # skip the second OpenAI call and answer about twice as fast.
+        self._write_tips = write_tips
 
     @property
     def client(self) -> AIClient:
@@ -240,7 +243,9 @@ class AIService:
         answer["region"] = region
         answer["tip"] = (
             "The item could not be identified. Check your city's waste guide before disposal."
-            if result.category == "unknown" else self.generate_tip(result.category, region)
+            if result.category == "unknown"
+            else self.generate_tip(result.category, region) if self._write_tips
+            else "Check your city's waste guide before disposal."
         )
         return answer
 
