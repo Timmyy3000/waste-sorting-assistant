@@ -18,9 +18,9 @@
       <div><span class="step-label">A SMALL STEP STARTS HERE</span><h2 id="upload-heading">What are we sorting?</h2></div>
       <span class="soft-icon">{{ icon('scan', 24) }}</span>
     </div>
-    <p class="upload-intro">Choose your city, then enter an item name and/or add a photo. Exact fruit names typed alone show Bioabfall guidance immediately and can be corrected. {% if config.LOCAL_VISION_ENABLED %}The offline photo matcher offers suggestions that need your confirmation.{% else %}Photo recognition is unavailable with KI:connect.{% endif %}</p>
+    <p class="upload-intro">Choose your city, then enter an item name and/or add a photo. Exact fruit names typed alone show Bioabfall guidance immediately and can be corrected. {% if config.LOCAL_VISION_ENABLED %}The offline photo matcher offers suggestions that need your confirmation.{% else %}Photos are classified with the OpenAI API, and you confirm the result.{% endif %}</p>
     {% include 'upload_form.html' %}
-    <div class="upload-privacy">{{ icon('shield', 18) }}<span>{% if config.LOCAL_VISION_ENABLED %}Photo analysed locally on this server, not sent to KI:connect.{% else %}Photo not sent to the unverified KI:connect model.{% endif %}<br>We save the result, not your photo.</span></div>
+    <div class="upload-privacy">{{ icon('shield', 18) }}<span>{% if config.LOCAL_VISION_ENABLED %}Photo analysed locally on this server.{% else %}Photo sent only to the OpenAI API for classification.{% endif %}<br>We save the result, not your photo.</span></div>
   </section>
 </section>
 
