@@ -44,7 +44,7 @@ def test_home_page_loads(client):
     assert b"Bottles and Pfand" in response.data
     assert b"Illustration of a Pfand bottle return machine" in response.data
     assert b"Altglas" in response.data
-    assert response.headers["X-App-Version"] == "2026-11-07-confirmation-v7"
+    assert response.headers["X-App-Version"] == "v1.0"
 
 
 def test_text_upload_shows_friendly_error(client):
@@ -220,6 +220,16 @@ def test_german_routes_and_ambiguous_bottles():
     assert suggestion("compostable", "banana peel") == "bio"
 
 
+def test_every_prompt_label_has_a_matching_route():
+    from app.ai_prompts import ITEM_LABELS
+    from app.disposal import CATEGORY, REVIEWED_ITEMS, suggestion
+
+    for category, labels in ITEM_LABELS.items():
+        for label in labels:
+            assert CATEGORY[REVIEWED_ITEMS[label]] == category
+            assert suggestion(category, label) == REVIEWED_ITEMS[label]
+
+
 def test_correction_requires_owner_and_csrf_updates_stats_and_audit(client, monkeypatch):
     from app.ai_services import AIService
     from app.db import create_database
@@ -366,7 +376,7 @@ def test_local_image_match_suggests_category_without_asking_ki(client, monkeypat
 
 @pytest.mark.parametrize("description,category", [
     ("plastic bottle", "recyclable"),
-    ("battery", "unknown"),
+    ("old gadget", "unknown"),
     ("random item", "unknown"),
     ("apple juice carton", "unknown"),
 ])

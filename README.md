@@ -24,6 +24,10 @@ municipalities do not know their recycling rates.
 
 Final presentation slides: [PDF](docs/presentation/EcoSort_final_presentation.pdf) · [PowerPoint](docs/presentation/EcoSort_final_presentation.pptx)
 
+## Sample images
+
+`sample_images/` holds photos for trying the photo upload (banana peel, can, pizza box, coffee cup, battery, glass jar, plastic bottle). Sources and licences: [sample_images/CREDITS.md](sample_images/CREDITS.md).
+
 ## Team
 
 | Member | Subsystem | Files |
@@ -630,7 +634,7 @@ pytest                              # run all unit tests
 pytest --cov=app --cov-branch       # with statement and branch coverage
 ```
 
-**Current result (main, Python 3.12): 88 passed, 80 % total coverage.**
+**Current result (main, Python 3.12): 89 passed, 80 % total coverage.**
 
 | Subsystem | Test file(s) | Main module coverage |
 |---|---|---|

@@ -70,18 +70,38 @@ def guidance(region: str, stream: str) -> Guidance:
     return Guidance(*common[stream], source)
 
 
+# Reviewed item names and their route. The vision prompt (ai_prompts.ITEM_LABELS)
+# asks the model to answer with one of these names, so common items get a
+# preselected route. Anything else stays "unknown" and the user chooses.
+REVIEWED_ITEMS = {
+    # bio
+    "banana": "bio", "banana peel": "bio", "banana (whole fruit or peel)": "bio", "apple": "bio",
+    "apple (whole fruit or scraps)": "bio", "apple peel": "bio", "apple core": "bio",
+    "orange peel": "bio", "fruit scraps": "bio", "vegetable scraps": "bio",
+    "coffee grounds": "bio", "tea bag": "bio", "eggshells": "bio",
+    # paper
+    "cardboard": "paper", "cardboard box": "paper", "newspaper": "paper",
+    "magazine": "paper", "paper bag": "paper", "egg carton": "paper",
+    # packaging
+    "tin can": "packaging", "food tin": "packaging", "yogurt cup": "packaging",
+    "plastic food tray": "packaging", "plastic packaging film": "packaging",
+    "plastic shopping bag": "packaging", "aluminium foil": "packaging",
+    "drink carton": "packaging",
+    # Pfand: single-use drink cans and plastic drink bottles carry a deposit in Germany
+    "drink can": "deposit", "plastic drink bottle": "deposit",
+    # glass
+    "glass jar": "glass",
+    # special collection
+    "battery": "electronics", "phone charger": "electronics", "light bulb": "hazardous",
+    # residual waste
+    "used tissue": "rest", "diaper": "rest", "broken ceramic mug": "rest",
+    "disposable coffee cup": "rest", "cigarette butt": "rest", "vacuum cleaner bag": "rest",
+}
+
+
 def suggestion(category: str, material: str) -> str:
     """Only clearly named items may be suggested; uncertain items need review."""
-    if category == "unknown" or not isinstance(material, str):
+    if not isinstance(material, str):
         return "unknown"
-    label = material.strip().lower()
-    explicit = {
-        "banana peel": "bio", "banana (whole fruit or peel)": "bio",
-        "apple (whole fruit or scraps)": "bio", "apple peel": "bio",
-        "apple core": "bio", "coffee grounds": "bio",
-        "cardboard": "paper", "cardboard box": "paper", "newspaper": "paper",
-        "tin can": "packaging", "food tin": "packaging", "yogurt cup": "packaging",
-        "used tissue": "rest", "diaper": "rest", "broken ceramic mug": "rest",
-    }
-    stream = explicit.get(label, "unknown")
+    stream = REVIEWED_ITEMS.get(material.strip().lower(), "unknown")
     return stream if category == CATEGORY[stream] else "unknown"

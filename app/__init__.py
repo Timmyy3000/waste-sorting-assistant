@@ -34,7 +34,7 @@ class AppFactory:
         app.config["LOCAL_VISION_ENABLED"] = bool(os.getenv("LOCAL_VISION_MODEL_DIR"))
         # KI:connect gives unverified photo results, so the AI service skips photos there.
         app.config["KICONNECT"] = urlparse(os.getenv("OPENAI_BASE_URL", "")).hostname == "chat.kiconnect.nrw"
-        app.config["APP_VERSION"] = "2026-11-07-confirmation-v7"
+        app.config["APP_VERSION"] = "v1.0"
         app.config["MAX_CONTENT_LENGTH"] = self.config.upload_limit
         app.config["ALLOWED_TYPES"] = self.config.allowed_types
         app.config["DB_HOST"] = self.config.database_host

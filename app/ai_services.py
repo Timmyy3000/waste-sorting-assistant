@@ -158,7 +158,6 @@ class AIClient:
             response = self._client.chat.completions.create(
                 model=self._model,
                 messages=[{"role": "user", "content": content}],
-                temperature=0,
                 **options,
             )
         except Exception:
